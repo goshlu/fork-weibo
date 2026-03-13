@@ -35,6 +35,7 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           posts={state.posts}
         />
       ) : null}
+
       {state.viewMode === 'profile' ? (
         <ProfilePage
           avatarPreview={state.avatarPreview}
@@ -42,12 +43,14 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           commentDrafts={state.commentDrafts}
           commentsByPost={state.commentsByPost}
           expandedComments={state.expandedComments}
+          favoriteFolderName={state.favoriteFolderName}
           favoritePostIds={state.favoritePostIds}
           favorites={state.favorites}
           followingAuthorIds={state.followingAuthorIds}
           likedPostIds={state.likedPostIds}
           onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
           onFavorite={(postId) => void actions.toggleFavorite(postId)}
+          onFavoriteFolderNameChange={actions.setFavoriteFolderName}
           onFollow={(authorId) => void actions.toggleFollow(authorId)}
           onLike={(postId) => void actions.toggleLike(postId)}
           onProfileFormChange={actions.setProfileForm}
@@ -60,6 +63,7 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           profileForm={state.profileForm}
         />
       ) : null}
+
       {state.viewMode === 'drafts' ? (
         <DraftsPage
           busy={state.busy}
@@ -71,7 +75,13 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           onSaveDraft={(postId) => void actions.saveDraft(postId)}
         />
       ) : null}
-      {state.viewMode === 'notifications' ? <NotificationsPage notifications={state.notifications} onMarkAllRead={() => void actions.markNotificationsRead()} /> : null}
+
+      {state.viewMode === 'notifications' ? (
+        <NotificationsPage
+          notifications={state.notifications}
+          onMarkAllRead={() => void actions.markNotificationsRead()}
+        />
+      ) : null}
     </section>
   );
 }

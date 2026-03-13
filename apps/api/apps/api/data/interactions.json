@@ -1,6 +1,13 @@
 {
   "likes": [],
-  "favorites": [],
+  "favorites": [
+    {
+      "userId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "postId": "cfc822a9-f2dd-4ee6-a22c-5987f75e7eb9",
+      "folderName": "default",
+      "createdAt": "2026-03-13T07:52:35.523Z"
+    }
+  ],
   "comments": [
     {
       "id": "9f12a1db-7e90-4dfe-89c9-20f3f0d6954e",

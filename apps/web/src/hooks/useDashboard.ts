@@ -48,6 +48,7 @@ type DashboardState = {
   draftEdits: Record<string, string>;
   drafts: Post[];
   expandedComments: Record<string, boolean>;
+  favoriteFolderName: string;
   favoritePostIds: Record<string, boolean>;
   favorites: FavoriteItem[];
   feedMode: FeedMode;
@@ -81,6 +82,7 @@ type DashboardActions = {
   setCommentDrafts: Dispatch<SetStateAction<Record<string, string>>>;
   setComposer: Dispatch<SetStateAction<ComposerState>>;
   setDraftEdits: Dispatch<SetStateAction<Record<string, string>>>;
+  setFavoriteFolderName: Dispatch<SetStateAction<string>>;
   setFeedMode: Dispatch<SetStateAction<FeedMode>>;
   setProfileForm: Dispatch<SetStateAction<ProfileFormState>>;
   setSearchInput: Dispatch<SetStateAction<string>>;
@@ -131,6 +133,7 @@ export function useDashboard(): DashboardReturn {
   const [drafts, setDrafts] = useState<Post[]>([]);
   const [draftEdits, setDraftEdits] = useState<Record<string, string>>({});
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [favoriteFolderName, setFavoriteFolderName] = useState(DEFAULT_FAVORITE_FOLDER);
   const [favoritePostIds, setFavoritePostIds] = useState<Record<string, boolean>>({});
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -410,11 +413,12 @@ export function useDashboard(): DashboardReturn {
     }
 
     const favorited = favoritePostIds[postId] ?? false;
+    const folderName = favoriteFolderName.trim() || DEFAULT_FAVORITE_FOLDER;
     setBusy(`favorite:${postId}`);
     try {
-      await api.favoritePost(postId, favorited, token, DEFAULT_FAVORITE_FOLDER);
+      await api.favoritePost(postId, favorited, token, folderName);
       await refreshAuthedData(token);
-      setMessage(favorited ? 'Removed from favorites.' : 'Added to favorites.');
+      setMessage(favorited ? 'Removed from favorites.' : `Saved to ${folderName}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to update favorite.');
     } finally {
@@ -581,6 +585,7 @@ export function useDashboard(): DashboardReturn {
       draftEdits,
       drafts,
       expandedComments,
+      favoriteFolderName,
       favoritePostIds,
       favorites,
       feedMode,
@@ -613,6 +618,7 @@ export function useDashboard(): DashboardReturn {
       setCommentDrafts,
       setComposer,
       setDraftEdits,
+      setFavoriteFolderName,
       setFeedMode,
       setProfileForm,
       setSearchInput,

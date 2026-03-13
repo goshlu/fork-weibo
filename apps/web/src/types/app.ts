@@ -64,6 +64,7 @@ export type FavoriteItem = {
 export type AuthFormState = { username: string; password: string; nickname: string };
 export type ComposerState = { content: string; status: 'draft' | 'published' };
 export type ProfileFormState = { nickname: string; bio: string; password: string };
+export type ProfileTab = 'published' | 'favorites';
 
 export const feedTitles: Record<FeedMode, string> = {
   hot: 'Hot Feed',

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
-import { PostCard } from '../PostCard';
-import type { Comment, FavoriteItem, Post, ProfileFormState, UserProfile } from '../../types/app';
-
-type ProfileTab = 'published' | 'favorites';
+import { ProfileEditor } from '../profile/ProfileEditor';
+import { ProfileHeader } from '../profile/ProfileHeader';
+import { ProfileLibrary } from '../profile/ProfileLibrary';
+import type { Comment, FavoriteItem, Post, ProfileFormState, ProfileTab, UserProfile } from '../../types/app';
 
 type ProfilePageProps = {
   avatarPreview: string;
   busy: string;
+  favoriteFolderName: string;
   favorites: FavoriteItem[];
   profile: UserProfile | null;
   profileForm: ProfileFormState;
@@ -20,6 +21,7 @@ type ProfilePageProps = {
   commentDrafts: Record<string, string>;
   expandedComments: Record<string, boolean>;
   onFavorite: (postId: string) => void;
+  onFavoriteFolderNameChange: (value: string) => void;
   onLike: (postId: string) => void;
   onFollow: (authorId: string) => void;
   onToggleComments: (postId: string) => void;
@@ -58,9 +60,7 @@ async function cropAvatar(file: File, crop: CropState): Promise<File> {
     canvas.height = 512;
 
     const context = canvas.getContext('2d');
-    if (!context) {
-      throw new Error('Canvas is not available in this browser.');
-    }
+    if (!context) throw new Error('Canvas is not available in this browser.');
 
     const minSide = Math.min(image.width, image.height);
     const visibleSide = minSide / crop.scale;
@@ -73,10 +73,7 @@ async function cropAvatar(file: File, crop: CropState): Promise<File> {
 
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((nextBlob) => {
-        if (!nextBlob) {
-          reject(new Error('Failed to export avatar preview.'));
-          return;
-        }
+        if (!nextBlob) return reject(new Error('Failed to export avatar preview.'));
         resolve(nextBlob);
       }, 'image/jpeg', 0.92);
     });
@@ -91,6 +88,7 @@ export function ProfilePage(props: ProfilePageProps) {
   const {
     avatarPreview,
     busy,
+    favoriteFolderName,
     favorites,
     profile,
     profileForm,
@@ -102,6 +100,7 @@ export function ProfilePage(props: ProfilePageProps) {
     commentDrafts,
     expandedComments,
     onFavorite,
+    onFavoriteFolderNameChange,
     onLike,
     onFollow,
     onToggleComments,
@@ -131,9 +130,7 @@ export function ProfilePage(props: ProfilePageProps) {
     };
   }, [pendingAvatar]);
 
-  if (!profile) {
-    return <div className="empty-state">Log in to view your profile.</div>;
-  }
+  if (!profile) return <div className="empty-state">Log in to view your profile.</div>;
 
   const previewSrc = localPreview || avatarPreview;
 
@@ -147,183 +144,42 @@ export function ProfilePage(props: ProfilePageProps) {
 
   return (
     <>
-      <div className="toolbar simple-toolbar">
-        <div>
-          <p className="section-label">Profile</p>
-          <h2>{profile.nickname}</h2>
-        </div>
-      </div>
-
+      <ProfileHeader avatarPreview={previewSrc} profile={profile} />
       <div className="profile-layout">
-        <div className="profile-card">
-          <div className="profile-header">
-            <div className="avatar-shell avatar-shell-large">
-              {previewSrc ? (
-                <img
-                  alt={profile.nickname}
-                  className="avatar-image"
-                  src={previewSrc}
-                  style={
-                    localPreview
-                      ? {
-                          transform: `scale(${crop.scale})`,
-                          transformOrigin: `${crop.offsetX}% ${crop.offsetY}%`,
-                        }
-                      : undefined
-                  }
-                />
-              ) : (
-                <span>{profile.nickname.slice(0, 1).toUpperCase()}</span>
-              )}
-            </div>
-            <div className="profile-main">
-              <strong>@{profile.username}</strong>
-              <p>{profile.bio || 'No bio yet.'}</p>
-            </div>
-          </div>
-          <div className="profile-stats">
-            <div><span>Followers</span><strong>{profile.stats.followers}</strong></div>
-            <div><span>Following</span><strong>{profile.stats.following}</strong></div>
-            <div><span>Posts</span><strong>{profile.stats.posts}</strong></div>
-            <div><span>Likes</span><strong>{profile.stats.likesReceived}</strong></div>
-          </div>
-          <div className="stack-form compact-form">
-            <label>
-              Avatar
-              <input
-                accept="image/*"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    setPendingAvatar(file);
-                    setCrop(initialCrop);
-                  }
-                }}
-                type="file"
-              />
-            </label>
-            {pendingAvatar ? (
-              <div className="crop-panel">
-                <label>
-                  Zoom
-                  <input
-                    max="2.5"
-                    min="1"
-                    onChange={(event) => setCrop((prev) => ({ ...prev, scale: Number(event.target.value) }))}
-                    step="0.05"
-                    type="range"
-                    value={crop.scale}
-                  />
-                </label>
-                <label>
-                  Horizontal
-                  <input
-                    max="100"
-                    min="0"
-                    onChange={(event) => setCrop((prev) => ({ ...prev, offsetX: Number(event.target.value) }))}
-                    type="range"
-                    value={crop.offsetX}
-                  />
-                </label>
-                <label>
-                  Vertical
-                  <input
-                    max="100"
-                    min="0"
-                    onChange={(event) => setCrop((prev) => ({ ...prev, offsetY: Number(event.target.value) }))}
-                    type="range"
-                    value={crop.offsetY}
-                  />
-                </label>
-                <div className="post-actions">
-                  <button className="primary-button" disabled={busy === 'avatar'} onClick={() => void handleAvatarSubmit()} type="button">
-                    {busy === 'avatar' ? 'Uploading avatar...' : 'Apply cropped avatar'}
-                  </button>
-                  <button onClick={() => { setPendingAvatar(null); setCrop(initialCrop); }} type="button">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : null}
-            <label>
-              Nickname
-              <input value={profileForm.nickname} onChange={(event) => onProfileFormChange((prev) => ({ ...prev, nickname: event.target.value }))} />
-            </label>
-            <label>
-              Bio
-              <textarea rows={3} value={profileForm.bio} onChange={(event) => onProfileFormChange((prev) => ({ ...prev, bio: event.target.value }))} />
-            </label>
-            <label>
-              New password
-              <input type="password" value={profileForm.password} onChange={(event) => onProfileFormChange((prev) => ({ ...prev, password: event.target.value }))} placeholder="Leave blank to keep current password" />
-            </label>
-            <button className="primary-button" disabled={busy === 'profile' || busy === 'avatar'} onClick={onSaveProfile} type="button">
-              {busy === 'profile' ? 'Saving...' : 'Save profile'}
-            </button>
-          </div>
-        </div>
-
-        <div className="profile-section">
-          <div className="inline-head">
-            <h3>Content Library</h3>
-            <div className="segmented-inline">
-              <button className={activeTab === 'published' ? 'active' : ''} onClick={() => setActiveTab('published')} type="button">
-                Published {posts.length}
-              </button>
-              <button className={activeTab === 'favorites' ? 'active' : ''} onClick={() => setActiveTab('favorites')} type="button">
-                Favorites {favorites.length}
-              </button>
-            </div>
-          </div>
-          {activeTab === 'favorites' ? (
-            <div className="compact-list">
-              {favorites.length ? (
-                favorites.map((item) => (
-                  <article className="favorite-card" key={`${item.postId}:${item.folderName}`}>
-                    <div className="post-meta">
-                      <span>{item.folderName}</span>
-                      <span>{new Date(item.createdAt).toLocaleString()}</span>
-                    </div>
-                    <p>{item.post.content}</p>
-                    <div className="post-actions">
-                      <button className="active-action" disabled={busy === `favorite:${item.postId}`} onClick={() => onFavorite(item.postId)} type="button">
-                        Unfavorite
-                      </button>
-                    </div>
-                  </article>
-                ))
-              ) : (
-                <div className="empty-state">No favorites yet.</div>
-              )}
-            </div>
-          ) : (
-            <div className="post-list compact-list">
-              {posts.length ? (
-                posts.map((post) => (
-                  <PostCard
-                    busy={busy}
-                    commentDraft={commentDrafts[post.id] ?? ''}
-                    comments={commentsByPost[post.id] ?? []}
-                    commentsOpen={expandedComments[post.id] ?? false}
-                    favorited={favoritePostIds[post.id] ?? false}
-                    followed={followingAuthorIds[post.authorId] ?? false}
-                    key={post.id}
-                    liked={likedPostIds[post.id] ?? false}
-                    onCommentDraftChange={onCommentDraftChange}
-                    onFavorite={onFavorite}
-                    onFollow={onFollow}
-                    onLike={onLike}
-                    onSubmitComment={onSubmitComment}
-                    onToggleComments={onToggleComments}
-                    post={post}
-                  />
-                ))
-              ) : (
-                <div className="empty-state">No published posts yet.</div>
-              )}
-            </div>
-          )}
-        </div>
+        <ProfileEditor
+          avatarPreview={previewSrc}
+          busy={busy}
+          crop={crop}
+          pendingAvatar={pendingAvatar}
+          profileForm={profileForm}
+          onApplyAvatar={() => void handleAvatarSubmit()}
+          onAvatarPick={(file) => { setPendingAvatar(file); setCrop(initialCrop); }}
+          onCancelAvatar={() => { setPendingAvatar(null); setCrop(initialCrop); }}
+          onCropChange={setCrop}
+          onProfileFormChange={onProfileFormChange}
+          onSaveProfile={onSaveProfile}
+        />
+        <ProfileLibrary
+          activeTab={activeTab}
+          busy={busy}
+          commentDrafts={commentDrafts}
+          commentsByPost={commentsByPost}
+          expandedComments={expandedComments}
+          favoriteFolderName={favoriteFolderName}
+          favoritePostIds={favoritePostIds}
+          favorites={favorites}
+          followingAuthorIds={followingAuthorIds}
+          likedPostIds={likedPostIds}
+          onCommentDraftChange={onCommentDraftChange}
+          onFavorite={onFavorite}
+          onFavoriteFolderNameChange={onFavoriteFolderNameChange}
+          onFollow={onFollow}
+          onLike={onLike}
+          onSubmitComment={onSubmitComment}
+          onTabChange={setActiveTab}
+          onToggleComments={onToggleComments}
+          posts={posts}
+        />
       </div>
     </>
   );
