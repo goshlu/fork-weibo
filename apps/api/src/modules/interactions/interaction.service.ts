@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 
 import type { MemoryCache } from '../../lib/cache.js';
 import type { PostRepository } from '../posts/post.repository.js';
+import type { PostRecord } from '../posts/post.types.js';
 import type { UserRepository } from '../users/user.repository.js';
 import type { InteractionRepository } from './interaction.repository.js';
-import type { CommentRecord, NotificationRecord } from './interaction.types.js';
+import type { CommentRecord, FavoriteListItem, NotificationRecord } from './interaction.types.js';
 
 export class InteractionService {
   constructor(
@@ -114,6 +115,34 @@ export class InteractionService {
 
     this.invalidateInteractionCaches();
     return result;
+  }
+
+  async listFavorites(userId: string): Promise<{ items: Array<FavoriteListItem & { post: PostRecord }>; total: number }> {
+    const [store, posts] = await Promise.all([this.repository.read(), this.postRepository.list()]);
+    const postById = new Map(posts.map((post) => [post.id, post]));
+
+    const items = store.favorites
+      .filter((item) => item.userId === userId)
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .map((item) => {
+        const post = postById.get(item.postId);
+        if (!post || post.status !== 'published') {
+          return null;
+        }
+
+        return {
+          postId: item.postId,
+          folderName: item.folderName,
+          createdAt: item.createdAt,
+          post,
+        };
+      })
+      .filter((item): item is FavoriteListItem & { post: PostRecord } => item !== null);
+
+    return {
+      items,
+      total: items.length,
+    };
   }
 
   async addComment(

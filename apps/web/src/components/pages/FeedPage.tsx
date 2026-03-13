@@ -10,6 +10,7 @@ type FeedPageProps = {
   message: string;
   posts: Post[];
   likedPostIds: Record<string, boolean>;
+  favoritePostIds: Record<string, boolean>;
   followingAuthorIds: Record<string, boolean>;
   commentsByPost: Record<string, Comment[]>;
   commentDrafts: Record<string, string>;
@@ -18,6 +19,7 @@ type FeedPageProps = {
   onFeedModeChange: (mode: FeedMode) => void;
   onSubmitComposer: () => void;
   onLike: (postId: string) => void;
+  onFavorite: (postId: string) => void;
   onFollow: (authorId: string) => void;
   onToggleComments: (postId: string) => void;
   onCommentDraftChange: (postId: string, value: string) => void;
@@ -32,6 +34,7 @@ export function FeedPage(props: FeedPageProps) {
     message,
     posts,
     likedPostIds,
+    favoritePostIds,
     followingAuthorIds,
     commentsByPost,
     commentDrafts,
@@ -40,6 +43,7 @@ export function FeedPage(props: FeedPageProps) {
     onFeedModeChange,
     onSubmitComposer,
     onLike,
+    onFavorite,
     onFollow,
     onToggleComments,
     onCommentDraftChange,
@@ -99,10 +103,12 @@ export function FeedPage(props: FeedPageProps) {
               commentDraft={commentDrafts[post.id] ?? ''}
               comments={commentsByPost[post.id] ?? []}
               commentsOpen={expandedComments[post.id] ?? false}
+              favorited={favoritePostIds[post.id] ?? false}
               followed={followingAuthorIds[post.authorId] ?? false}
               key={post.id}
               liked={likedPostIds[post.id] ?? false}
               onCommentDraftChange={onCommentDraftChange}
+              onFavorite={onFavorite}
               onFollow={onFollow}
               onLike={onLike}
               onSubmitComment={onSubmitComment}

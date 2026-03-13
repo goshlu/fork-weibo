@@ -7,6 +7,7 @@ type DiscoveryPanelProps = {
   commentDrafts: Record<string, string>;
   commentsByPost: Record<string, Comment[]>;
   expandedComments: Record<string, boolean>;
+  favoritePostIds: Record<string, boolean>;
   followingAuthorIds: Record<string, boolean>;
   likedPostIds: Record<string, boolean>;
   searchInput: string;
@@ -14,6 +15,7 @@ type DiscoveryPanelProps = {
   searchTrends: SearchTrend[];
   topics: Topic[];
   onCommentDraftChange: (postId: string, value: string) => void;
+  onFavorite: (postId: string) => void;
   onFollow: (authorId: string) => void;
   onLike: (postId: string) => void;
   onSearchInputChange: (value: string) => void;
@@ -29,6 +31,7 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
     commentDrafts,
     commentsByPost,
     expandedComments,
+    favoritePostIds,
     followingAuthorIds,
     likedPostIds,
     searchInput,
@@ -36,6 +39,7 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
     searchTrends,
     topics,
     onCommentDraftChange,
+    onFavorite,
     onFollow,
     onLike,
     onSearchInputChange,
@@ -70,10 +74,12 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
                 commentDraft={commentDrafts[post.id] ?? ''}
                 comments={commentsByPost[post.id] ?? []}
                 commentsOpen={expandedComments[post.id] ?? false}
+                favorited={favoritePostIds[post.id] ?? false}
                 followed={followingAuthorIds[post.authorId] ?? false}
                 key={post.id}
                 liked={likedPostIds[post.id] ?? false}
                 onCommentDraftChange={onCommentDraftChange}
+                onFavorite={onFavorite}
                 onFollow={onFollow}
                 onLike={onLike}
                 onSubmitComment={onSubmitComment}

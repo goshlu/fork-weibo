@@ -54,8 +54,16 @@ export type Notification = {
   createdAt: string;
 };
 
+export type FavoriteItem = {
+  postId: string;
+  folderName: string;
+  createdAt: string;
+  post: Post;
+};
+
 export type AuthFormState = { username: string; password: string; nickname: string };
 export type ComposerState = { content: string; status: 'draft' | 'published' };
+export type ProfileFormState = { nickname: string; bio: string; password: string };
 
 export const feedTitles: Record<FeedMode, string> = {
   hot: 'Hot Feed',

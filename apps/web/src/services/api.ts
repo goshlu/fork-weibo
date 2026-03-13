@@ -1,4 +1,16 @@
-import type { Channel, Comment, ComposerState, FeedMode, Notification, Post, SearchTrend, Topic, User, UserProfile } from '../types/app';
+import type {
+  Channel,
+  Comment,
+  ComposerState,
+  FavoriteItem,
+  FeedMode,
+  Notification,
+  Post,
+  SearchTrend,
+  Topic,
+  User,
+  UserProfile,
+} from '../types/app';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api';
 
@@ -26,6 +38,12 @@ export const api = {
   createPost(payload: ComposerState, token: string) {
     return request<{ post: Post }>('/posts', { method: 'POST', body: JSON.stringify(payload) }, token);
   },
+  updatePost(postId: string, payload: Partial<ComposerState> & { content?: string }, token: string) {
+    return request<{ post: Post }>(`/posts/${postId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
+  },
+  deletePost(postId: string, token: string) {
+    return request<void>(`/posts/${postId}`, { method: 'DELETE' }, token);
+  },
   getFeed(mode: FeedMode, token?: string) {
     const path = mode === 'hot' ? '/feed/hot?page=1&pageSize=10' : mode === 'following' ? '/feed/following?page=1&pageSize=10' : '/feed/recommended?page=1&pageSize=10';
     return request<{ items: Post[] }>(path, {}, token);
@@ -41,19 +59,53 @@ export const api = {
   getMyUser(token: string) {
     return request<{ user: User }>('/users/me', {}, token);
   },
+  updateMyUser(payload: { nickname?: string; bio?: string; password?: string }, token: string) {
+    return request<{ user: User }>('/users/me', { method: 'PATCH', body: JSON.stringify(payload) }, token);
+  },
+  uploadAvatar(file: File, token: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<{ user: User }>('/users/me/avatar', { method: 'POST', body: formData }, token);
+  },
   getProfile(userId: string) {
     return request<{ profile: UserProfile }>(`/users/${userId}/profile`);
+  },
+  getFavorites(token: string) {
+    return request<{ items: FavoriteItem[]; total: number }>('/favorites', {}, token);
   },
   search(keyword: string) {
     return request<{ items: Post[] }>(`/search?q=${encodeURIComponent(keyword)}&page=1&pageSize=8`);
   },
-  getTopics() { return request<{ items: Topic[] }>('/discover/topics?page=1&pageSize=6'); },
-  getSearchTrends() { return request<{ items: SearchTrend[] }>('/discover/searches?page=1&pageSize=6'); },
-  getChannels() { return request<{ items: Channel[] }>('/discover/channels'); },
-  likePost(postId: string, liked: boolean, token: string) { return request(`/posts/${postId}/likes`, { method: liked ? 'DELETE' : 'POST' }, token); },
-  followAuthor(authorId: string, followed: boolean, token: string) { return request(`/users/${authorId}/follow`, { method: followed ? 'DELETE' : 'POST' }, token); },
-  getComments(postId: string) { return request<{ comments: Comment[] }>(`/posts/${postId}/comments`); },
-  createComment(postId: string, content: string, token: string) { return request<{ comment: Comment }>(`/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ content }) }, token); },
-  getNotifications(token: string) { return request<{ notifications: Notification[] }>('/notifications', {}, token); },
-  markNotificationsRead(token: string) { return request('/notifications/read', { method: 'POST' }, token); },
+  getTopics() {
+    return request<{ items: Topic[] }>('/discover/topics?page=1&pageSize=6');
+  },
+  getSearchTrends() {
+    return request<{ items: SearchTrend[] }>('/discover/searches?page=1&pageSize=6');
+  },
+  getChannels() {
+    return request<{ items: Channel[] }>('/discover/channels');
+  },
+  likePost(postId: string, liked: boolean, token: string) {
+    return request(`/posts/${postId}/likes`, { method: liked ? 'DELETE' : 'POST' }, token);
+  },
+  favoritePost(postId: string, favorited: boolean, token: string, folderName = 'default') {
+    return favorited
+      ? request(`/posts/${postId}/favorites/${encodeURIComponent(folderName)}`, { method: 'DELETE' }, token)
+      : request(`/posts/${postId}/favorites`, { method: 'POST', body: JSON.stringify({ folderName }) }, token);
+  },
+  followAuthor(authorId: string, followed: boolean, token: string) {
+    return request(`/users/${authorId}/follow`, { method: followed ? 'DELETE' : 'POST' }, token);
+  },
+  getComments(postId: string) {
+    return request<{ comments: Comment[] }>(`/posts/${postId}/comments`);
+  },
+  createComment(postId: string, content: string, token: string) {
+    return request<{ comment: Comment }>(`/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ content }) }, token);
+  },
+  getNotifications(token: string) {
+    return request<{ notifications: Notification[] }>('/notifications', {}, token);
+  },
+  markNotificationsRead(token: string) {
+    return request('/notifications/read', { method: 'POST' }, token);
+  },
 };

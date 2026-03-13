@@ -30,13 +30,18 @@ export default function App() {
         commentDrafts={state.commentDrafts}
         commentsByPost={state.commentsByPost}
         expandedComments={state.expandedComments}
+        favoritePostIds={state.favoritePostIds}
         followingAuthorIds={state.followingAuthorIds}
         likedPostIds={state.likedPostIds}
         onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
+        onFavorite={(postId) => void actions.toggleFavorite(postId)}
         onFollow={(authorId) => void actions.toggleFollow(authorId)}
         onLike={(postId) => void actions.toggleLike(postId)}
         onSearchInputChange={actions.setSearchInput}
-        onSearchKeywordChange={(value) => { actions.setSearchInput(value); actions.setSearchKeyword(value); }}
+        onSearchKeywordChange={(value) => {
+          actions.setSearchInput(value);
+          actions.setSearchKeyword(value);
+        }}
         onSubmitComment={(postId) => void actions.submitComment(postId)}
         onToggleComments={actions.toggleComments}
         searchInput={state.searchInput}

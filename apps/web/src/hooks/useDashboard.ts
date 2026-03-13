@@ -8,9 +8,11 @@ import type {
   Channel,
   Comment,
   ComposerState,
+  FavoriteItem,
   FeedMode,
   Notification,
   Post,
+  ProfileFormState,
   SearchTrend,
   Topic,
   User,
@@ -18,19 +20,36 @@ import type {
   ViewMode,
 } from '../types/app';
 
-type BusyState = '' | 'auth' | 'composer' | `like:${string}` | `follow:${string}` | `comment:${string}` | 'notifications';
+type BusyState =
+  | ''
+  | 'auth'
+  | 'composer'
+  | 'profile'
+  | 'avatar'
+  | `like:${string}`
+  | `favorite:${string}`
+  | `follow:${string}`
+  | `comment:${string}`
+  | `draft-save:${string}`
+  | `draft-publish:${string}`
+  | `draft-delete:${string}`
+  | 'notifications';
 
 type DashboardState = {
   authForm: AuthFormState;
   authMode: AuthMode;
+  avatarPreview: string;
   busy: BusyState;
   channels: Channel[];
   commentDrafts: Record<string, string>;
   commentsByPost: Record<string, Comment[]>;
   composer: ComposerState;
   currentUser: User | null;
+  draftEdits: Record<string, string>;
   drafts: Post[];
   expandedComments: Record<string, boolean>;
+  favoritePostIds: Record<string, boolean>;
+  favorites: FavoriteItem[];
   feedMode: FeedMode;
   followingAuthorIds: Record<string, boolean>;
   likedPostIds: Record<string, boolean>;
@@ -38,6 +57,7 @@ type DashboardState = {
   notifications: Notification[];
   posts: Post[];
   profile: UserProfile | null;
+  profileForm: ProfileFormState;
   profilePosts: Post[];
   searchInput: string;
   searchKeyword: string;
@@ -49,13 +69,20 @@ type DashboardState = {
 };
 
 type DashboardActions = {
+  deleteDraft: (postId: string) => Promise<void>;
   logout: () => void;
   markNotificationsRead: () => Promise<void>;
+  publishDraft: (postId: string) => Promise<void>;
+  saveDraft: (postId: string) => Promise<void>;
+  saveProfile: () => Promise<void>;
   setAuthForm: Dispatch<SetStateAction<AuthFormState>>;
   setAuthMode: Dispatch<SetStateAction<AuthMode>>;
+  setAvatarPreview: Dispatch<SetStateAction<string>>;
   setCommentDrafts: Dispatch<SetStateAction<Record<string, string>>>;
   setComposer: Dispatch<SetStateAction<ComposerState>>;
+  setDraftEdits: Dispatch<SetStateAction<Record<string, string>>>;
   setFeedMode: Dispatch<SetStateAction<FeedMode>>;
+  setProfileForm: Dispatch<SetStateAction<ProfileFormState>>;
   setSearchInput: Dispatch<SetStateAction<string>>;
   setSearchKeyword: Dispatch<SetStateAction<string>>;
   setViewMode: Dispatch<SetStateAction<ViewMode>>;
@@ -63,8 +90,10 @@ type DashboardActions = {
   submitComment: (postId: string) => Promise<void>;
   submitComposer: () => Promise<void>;
   toggleComments: (postId: string) => Promise<void>;
+  toggleFavorite: (postId: string) => Promise<void>;
   toggleFollow: (authorId: string) => Promise<void>;
   toggleLike: (postId: string) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
 };
 
 export type DashboardReturn = {
@@ -74,6 +103,7 @@ export type DashboardReturn = {
 
 const TOKEN_KEY = 'fork-weibo-token';
 const USER_KEY = 'fork-weibo-user';
+const DEFAULT_FAVORITE_FOLDER = 'default';
 
 function readStoredUser(): User | null {
   if (typeof window === 'undefined') return null;
@@ -86,13 +116,22 @@ function readStoredUser(): User | null {
   }
 }
 
+function buildFavoriteMap(items: FavoriteItem[]): Record<string, boolean> {
+  return Object.fromEntries(items.map((item) => [item.postId, true]));
+}
+
 export function useDashboard(): DashboardReturn {
   const [token, setToken] = useState(() => (typeof window === 'undefined' ? '' : window.localStorage.getItem(TOKEN_KEY) ?? ''));
   const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser());
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileForm, setProfileForm] = useState<ProfileFormState>({ nickname: '', bio: '', password: '' });
+  const [avatarPreview, setAvatarPreview] = useState('');
   const [posts, setPosts] = useState<Post[]>([]);
   const [profilePosts, setProfilePosts] = useState<Post[]>([]);
   const [drafts, setDrafts] = useState<Post[]>([]);
+  const [draftEdits, setDraftEdits] = useState<Record<string, string>>({});
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [favoritePostIds, setFavoritePostIds] = useState<Record<string, boolean>>({});
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [searchTrends, setSearchTrends] = useState<SearchTrend[]>([]);
@@ -142,7 +181,11 @@ export function useDashboard(): DashboardReturn {
       setProfile(null);
       setProfilePosts([]);
       setDrafts([]);
+      setFavorites([]);
+      setFavoritePostIds({});
       setNotifications([]);
+      setProfileForm({ nickname: '', bio: '', password: '' });
+      setAvatarPreview('');
       return;
     }
 
@@ -180,20 +223,35 @@ export function useDashboard(): DashboardReturn {
       setCurrentUser(me);
       if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(me));
 
-      const [profileData, profilePostsData, draftsData, notificationsData] = await Promise.all([
+      const [profileData, profilePostsData, draftsData, notificationsData, favoritesData] = await Promise.all([
         api.getProfile(me.id),
         api.getPosts({ authorId: me.id, status: 'published', pageSize: 20 }, activeToken),
         api.getPosts({ authorId: me.id, status: 'draft', pageSize: 20 }, activeToken),
         api.getNotifications(activeToken),
+        api.getFavorites(activeToken),
       ]);
 
       setProfile(profileData.profile);
+      setProfileForm({
+        nickname: profileData.profile.nickname,
+        bio: profileData.profile.bio,
+        password: '',
+      });
+      setAvatarPreview(profileData.profile.avatarUrl ? `${apiBase(profileData.profile.avatarUrl)}` : '');
       setProfilePosts(profilePostsData.items);
       setDrafts(draftsData.items);
+      setDraftEdits(Object.fromEntries(draftsData.items.map((item) => [item.id, item.content])));
       setNotifications(notificationsData.notifications);
+      setFavorites(favoritesData.items);
+      setFavoritePostIds(buildFavoriteMap(favoritesData.items));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Session refresh failed.');
     }
+  }
+
+  function apiBase(path: string): string {
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    return `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'}`.replace(/\/api$/, '') + path;
   }
 
   function logout() {
@@ -202,6 +260,9 @@ export function useDashboard(): DashboardReturn {
     setProfile(null);
     setProfilePosts([]);
     setDrafts([]);
+    setDraftEdits({});
+    setFavorites([]);
+    setFavoritePostIds({});
     setNotifications([]);
     setLikedPostIds({});
     setFollowingAuthorIds({});
@@ -261,6 +322,53 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
+  async function saveProfile() {
+    if (!token) {
+      setMessage('Log in before editing profile.');
+      return;
+    }
+
+    const payload: { nickname?: string; bio?: string; password?: string } = {};
+    if (profileForm.nickname.trim()) payload.nickname = profileForm.nickname.trim();
+    payload.bio = profileForm.bio.trim();
+    if (profileForm.password.trim()) payload.password = profileForm.password.trim();
+
+    setBusy('profile');
+    try {
+      const data = await api.updateMyUser(payload, token);
+      setCurrentUser(data.user);
+      if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      await refreshAuthedData(token);
+      setProfileForm((prev) => ({ ...prev, password: '' }));
+      setMessage('Profile updated.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to save profile.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function uploadAvatar(file: File) {
+    if (!token) {
+      setMessage('Log in before uploading an avatar.');
+      return;
+    }
+
+    setBusy('avatar');
+    try {
+      const data = await api.uploadAvatar(file, token);
+      setCurrentUser(data.user);
+      setAvatarPreview(data.user.avatarUrl ? apiBase(data.user.avatarUrl) : '');
+      if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      await refreshAuthedData(token);
+      setMessage('Avatar updated.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to upload avatar.');
+    } finally {
+      setBusy('');
+    }
+  }
+
   async function toggleLike(postId: string) {
     if (!token) {
       setMessage('Log in before liking a post.');
@@ -275,6 +383,25 @@ export function useDashboard(): DashboardReturn {
       await Promise.all([loadFeed(feedMode, token), refreshAuthedData(token)]);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to update like.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function toggleFavorite(postId: string) {
+    if (!token) {
+      setMessage('Log in before favoriting a post.');
+      return;
+    }
+
+    const favorited = favoritePostIds[postId] ?? false;
+    setBusy(`favorite:${postId}`);
+    try {
+      await api.favoritePost(postId, favorited, token, DEFAULT_FAVORITE_FOLDER);
+      await refreshAuthedData(token);
+      setMessage(favorited ? 'Removed from favorites.' : 'Added to favorites.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to update favorite.');
     } finally {
       setBusy('');
     }
@@ -341,6 +468,73 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
+  async function saveDraft(postId: string) {
+    if (!token) {
+      setMessage('Log in before editing drafts.');
+      return;
+    }
+
+    const content = (draftEdits[postId] ?? '').trim();
+    if (!content) {
+      setMessage('Draft content cannot be empty.');
+      return;
+    }
+
+    setBusy(`draft-save:${postId}`);
+    try {
+      await api.updatePost(postId, { content, status: 'draft' }, token);
+      await refreshAuthedData(token);
+      setMessage('Draft saved.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to save draft.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function publishDraft(postId: string) {
+    if (!token) {
+      setMessage('Log in before publishing drafts.');
+      return;
+    }
+
+    const content = (draftEdits[postId] ?? '').trim();
+    if (!content) {
+      setMessage('Draft content cannot be empty.');
+      return;
+    }
+
+    setBusy(`draft-publish:${postId}`);
+    try {
+      await api.updatePost(postId, { content, status: 'published' }, token);
+      await Promise.all([refreshAuthedData(token), loadFeed(feedMode, token)]);
+      setViewMode('profile');
+      setMessage('Draft published.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to publish draft.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function deleteDraft(postId: string) {
+    if (!token) {
+      setMessage('Log in before deleting drafts.');
+      return;
+    }
+
+    setBusy(`draft-delete:${postId}`);
+    try {
+      await api.deletePost(postId, token);
+      await refreshAuthedData(token);
+      setMessage('Draft deleted.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to delete draft.');
+    } finally {
+      setBusy('');
+    }
+  }
+
   async function markNotificationsRead() {
     if (!token) {
       setMessage('Log in before managing notifications.');
@@ -362,14 +556,18 @@ export function useDashboard(): DashboardReturn {
     state: {
       authForm,
       authMode,
+      avatarPreview,
       busy,
       channels,
       commentDrafts,
       commentsByPost,
       composer,
       currentUser,
+      draftEdits,
       drafts,
       expandedComments,
+      favoritePostIds,
+      favorites,
       feedMode,
       followingAuthorIds,
       likedPostIds,
@@ -377,6 +575,7 @@ export function useDashboard(): DashboardReturn {
       notifications,
       posts,
       profile,
+      profileForm,
       profilePosts,
       searchInput,
       searchKeyword,
@@ -387,13 +586,20 @@ export function useDashboard(): DashboardReturn {
       viewMode,
     },
     actions: {
+      deleteDraft,
       logout,
       markNotificationsRead,
+      publishDraft,
+      saveDraft,
+      saveProfile,
       setAuthForm,
       setAuthMode,
+      setAvatarPreview,
       setCommentDrafts,
       setComposer,
+      setDraftEdits,
       setFeedMode,
+      setProfileForm,
       setSearchInput,
       setSearchKeyword,
       setViewMode,
@@ -401,8 +607,10 @@ export function useDashboard(): DashboardReturn {
       submitComment,
       submitComposer,
       toggleComments,
+      toggleFavorite,
       toggleFollow,
       toggleLike,
+      uploadAvatar,
     },
   };
 }

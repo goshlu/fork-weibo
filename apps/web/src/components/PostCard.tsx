@@ -3,12 +3,14 @@ import type { Comment, Post } from '../types/app';
 type PostCardProps = {
   post: Post;
   liked: boolean;
+  favorited?: boolean;
   followed: boolean;
   comments: Comment[];
   commentsOpen: boolean;
   commentDraft: string;
   busy: string;
   onLike: (postId: string) => void;
+  onFavorite?: (postId: string) => void;
   onFollow: (authorId: string) => void;
   onToggleComments: (postId: string) => void;
   onCommentDraftChange: (postId: string, value: string) => void;
@@ -19,12 +21,14 @@ export function PostCard(props: PostCardProps) {
   const {
     post,
     liked,
+    favorited = false,
     followed,
     comments,
     commentsOpen,
     commentDraft,
     busy,
     onLike,
+    onFavorite,
     onFollow,
     onToggleComments,
     onCommentDraftChange,
@@ -51,6 +55,16 @@ export function PostCard(props: PostCardProps) {
         >
           {liked ? 'Unlike' : 'Like'}
         </button>
+        {onFavorite ? (
+          <button
+            className={favorited ? 'active-action' : ''}
+            disabled={busy === `favorite:${post.id}`}
+            onClick={() => onFavorite(post.id)}
+            type="button"
+          >
+            {favorited ? 'Unfavorite' : 'Favorite'}
+          </button>
+        ) : null}
         <button
           className={followed ? 'active-action' : ''}
           disabled={busy === `follow:${post.authorId}`}

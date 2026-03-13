@@ -46,3 +46,9 @@ export interface InteractionStore {
   follows: FollowRecord[];
   notifications: NotificationRecord[];
 }
+
+export interface FavoriteListItem {
+  postId: string;
+  folderName: string;
+  createdAt: string;
+}

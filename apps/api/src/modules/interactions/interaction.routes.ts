@@ -69,6 +69,16 @@ export async function registerInteractionRoutes(
     },
   );
 
+  app.get('/api/favorites', { preHandler: [app.authenticate] }, async (request, reply) => {
+    try {
+      const result = await interactionService.listFavorites(request.user.userId);
+      return result;
+    } catch (error) {
+      const mapped = toErrorResponse(error);
+      return reply.code(mapped.statusCode).send({ message: mapped.message });
+    }
+  });
+
   app.post(
     '/api/posts/:id/comments',
     { preHandler: [app.authenticate] },
