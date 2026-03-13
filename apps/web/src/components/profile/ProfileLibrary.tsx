@@ -1,3 +1,5 @@
+import { useMemo, useState } from 'react';
+
 import { PostCard } from '../PostCard';
 import type { Comment, FavoriteItem, Post, ProfileTab } from '../../types/app';
 
@@ -23,6 +25,8 @@ type ProfileLibraryProps = {
   onToggleComments: (postId: string) => void;
 };
 
+const DEFAULT_FOLDER = 'default';
+
 export function ProfileLibrary(props: ProfileLibraryProps) {
   const {
     activeTab,
@@ -46,12 +50,31 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
     onToggleComments,
   } = props;
 
+  const [newFolderName, setNewFolderName] = useState('');
+
+  const folders = useMemo(() => {
+    const names = new Set<string>([DEFAULT_FOLDER]);
+    favorites.forEach((item) => names.add(item.folderName));
+    if (favoriteFolderName.trim()) names.add(favoriteFolderName.trim());
+    return Array.from(names);
+  }, [favoriteFolderName, favorites]);
+
+  const activeFolder = favoriteFolderName.trim() || DEFAULT_FOLDER;
+  const filteredFavorites = favorites.filter((item) => item.folderName === activeFolder);
+
+  function createFolder() {
+    const nextFolder = newFolderName.trim();
+    if (!nextFolder) return;
+    onFavoriteFolderNameChange(nextFolder);
+    setNewFolderName('');
+  }
+
   return (
     <div className="profile-section">
       <div className="inline-head library-head">
         <div>
           <h3>Content Library</h3>
-          <p className="library-subtitle">Favorites use the folder name below when you save from any post card.</p>
+          <p className="library-subtitle">Switch folders to change what Favorite means across the app.</p>
         </div>
         <div className="segmented-inline">
           <button className={activeTab === 'published' ? 'active' : ''} onClick={() => onTabChange('published')} type="button">
@@ -63,15 +86,34 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
         </div>
       </div>
 
-      <label className="favorite-folder-field">
-        Favorite Folder
-        <input onChange={(event) => onFavoriteFolderNameChange(event.target.value)} placeholder="default" value={favoriteFolderName} />
-      </label>
+      <div className="folder-manager">
+        <div className="folder-list">
+          {folders.map((folder) => (
+            <button
+              className={activeFolder === folder ? 'folder-chip active' : 'folder-chip'}
+              key={folder}
+              onClick={() => onFavoriteFolderNameChange(folder)}
+              type="button"
+            >
+              {folder}
+              <span>{favorites.filter((item) => item.folderName === folder).length}</span>
+            </button>
+          ))}
+        </div>
+        <div className="folder-create-row">
+          <input
+            onChange={(event) => setNewFolderName(event.target.value)}
+            placeholder="New folder name"
+            value={newFolderName}
+          />
+          <button className="ghost-button" onClick={createFolder} type="button">Create</button>
+        </div>
+      </div>
 
       {activeTab === 'favorites' ? (
         <div className="compact-list">
-          {favorites.length ? (
-            favorites.map((item) => (
+          {filteredFavorites.length ? (
+            filteredFavorites.map((item) => (
               <article className="favorite-card" key={`${item.postId}:${item.folderName}`}>
                 <div className="post-meta">
                   <span>{item.folderName}</span>
@@ -80,13 +122,13 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
                 <p>{item.post.content}</p>
                 <div className="post-actions">
                   <button className="active-action" disabled={busy === `favorite:${item.postId}`} onClick={() => onFavorite(item.postId)} type="button">
-                    Unfavorite
+                    Remove from folder
                   </button>
                 </div>
               </article>
             ))
           ) : (
-            <div className="empty-state">No favorites yet.</div>
+            <div className="empty-state">No favorites in this folder yet.</div>
           )}
         </div>
       ) : (

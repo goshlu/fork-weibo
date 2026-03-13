@@ -36,8 +36,8 @@ export function LeftSidebar(props: LeftSidebarProps) {
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   return (
-    <section className="panel left-panel">
-      <div className="brand-block">
+    <section className="panel left-panel sidebar-panel">
+      <div className="brand-block sidebar-hero">
         <p className="eyebrow">fork-weibo</p>
         <h1>Social Dashboard</h1>
         <p className="lede">
@@ -46,105 +46,125 @@ export function LeftSidebar(props: LeftSidebarProps) {
         </p>
       </div>
 
-      <div className="nav-list">
-        {(['feed', 'profile', 'drafts', 'notifications'] as ViewMode[]).map((mode) => (
-          <button
-            className={viewMode === mode ? 'nav-button active' : 'nav-button'}
-            key={mode}
-            onClick={() => onViewModeChange(mode)}
-            type="button"
-          >
-            <span>{viewTitles[mode]}</span>
-            {mode === 'notifications' ? <strong>{unreadCount}</strong> : null}
-          </button>
-        ))}
+      <div className="sidebar-card sidebar-nav-card">
+        <div className="sidebar-card-head">
+          <p className="section-label">Workspace</p>
+          <span className="sidebar-pill">{unreadCount} unread</span>
+        </div>
+        <div className="nav-list sidebar-nav-list">
+          {(['feed', 'profile', 'drafts', 'notifications'] as ViewMode[]).map((mode) => (
+            <button
+              className={viewMode === mode ? 'nav-button active' : 'nav-button'}
+              key={mode}
+              onClick={() => onViewModeChange(mode)}
+              type="button"
+            >
+              <span>{viewTitles[mode]}</span>
+              <strong>{mode === 'notifications' ? unreadCount : '>'}</strong>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="auth-switch">
-        <button
-          className={authMode === 'login' ? 'active' : ''}
-          onClick={() => onAuthModeChange('login')}
-          type="button"
-        >
-          Login
-        </button>
-        <button
-          className={authMode === 'register' ? 'active' : ''}
-          onClick={() => onAuthModeChange('register')}
-          type="button"
-        >
-          Register
-        </button>
-      </div>
+      {!currentUser ? (
+        <div className="sidebar-card sidebar-auth-card">
+          <div className="sidebar-card-head">
+            <p className="section-label">Access</p>
+            <span className="sidebar-muted">Guest mode</span>
+          </div>
 
-      <form
-        className="stack-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmitAuth();
-        }}
-      >
-        <label>
-          Username
-          <input
-            onChange={(event) =>
-              onAuthFormChange((prev) => ({ ...prev, username: event.target.value }))
-            }
-            placeholder="coder01"
-            value={authForm.username}
-          />
-        </label>
-        <label>
-          Password
-          <input
-            onChange={(event) =>
-              onAuthFormChange((prev) => ({ ...prev, password: event.target.value }))
-            }
-            placeholder="At least 8 chars"
-            type="password"
-            value={authForm.password}
-          />
-        </label>
-        {authMode === 'register' ? (
-          <label>
-            Nickname
-            <input
-              onChange={(event) =>
-                onAuthFormChange((prev) => ({ ...prev, nickname: event.target.value }))
-              }
-              placeholder="Display name"
-              value={authForm.nickname}
-            />
-          </label>
-        ) : null}
-        <button className="primary-button" disabled={busy === 'auth'} type="submit">
-          {busy === 'auth' ? 'Working...' : authMode === 'login' ? 'Login' : 'Register'}
-        </button>
-      </form>
-
-      <div className="user-box">
-        <h2>Session</h2>
-        {currentUser ? (
-          <div>
-            <strong>{currentUser.nickname}</strong>
-            <p>@{currentUser.username}</p>
-            <button className="ghost-button" onClick={onLogout} type="button">
-              Logout
+          <div className="auth-switch">
+            <button
+              className={authMode === 'login' ? 'active' : ''}
+              onClick={() => onAuthModeChange('login')}
+              type="button"
+            >
+              Login
+            </button>
+            <button
+              className={authMode === 'register' ? 'active' : ''}
+              onClick={() => onAuthModeChange('register')}
+              type="button"
+            >
+              Register
             </button>
           </div>
-        ) : (
-          <p>You can still browse the hot feed and public search results.</p>
-        )}
-      </div>
 
-      <div className="insight-block">
-        <div className="inline-head">
-          <h3>Notification Preview</h3>
+          <form
+            className="stack-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSubmitAuth();
+            }}
+          >
+            <label>
+              Username
+              <input
+                onChange={(event) =>
+                  onAuthFormChange((prev) => ({ ...prev, username: event.target.value }))
+                }
+                placeholder="coder01"
+                value={authForm.username}
+              />
+            </label>
+            <label>
+              Password
+              <input
+                onChange={(event) =>
+                  onAuthFormChange((prev) => ({ ...prev, password: event.target.value }))
+                }
+                placeholder="At least 8 chars"
+                type="password"
+                value={authForm.password}
+              />
+            </label>
+            {authMode === 'register' ? (
+              <label>
+                Nickname
+                <input
+                  onChange={(event) =>
+                    onAuthFormChange((prev) => ({ ...prev, nickname: event.target.value }))
+                  }
+                  placeholder="Display name"
+                  value={authForm.nickname}
+                />
+              </label>
+            ) : null}
+            <button className="primary-button sidebar-submit" disabled={busy === 'auth'} type="submit">
+              {busy === 'auth' ? 'Working...' : authMode === 'login' ? 'Login' : 'Register'}
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="sidebar-card sidebar-session-card">
+          <div className="sidebar-card-head">
+            <p className="section-label">Session</p>
+            <span className="sidebar-status">Online</span>
+          </div>
+          <div className="session-summary">
+            <div className="session-avatar">{currentUser.nickname.slice(0, 1).toUpperCase()}</div>
+            <div>
+              <strong>{currentUser.nickname}</strong>
+              <p>@{currentUser.username}</p>
+            </div>
+          </div>
+          <button className="ghost-button sidebar-logout" onClick={onLogout} type="button">
+            Logout
+          </button>
+        </div>
+      )}
+
+      <div className="sidebar-card sidebar-notice-card">
+        <div className="inline-head sidebar-card-head">
+          <div>
+            <p className="section-label">Notifications</p>
+            <h3>Preview</h3>
+          </div>
           <button className="ghost-button" onClick={onMarkNotificationsRead} type="button">
             Mark all read
           </button>
         </div>
-        <div className="notification-list">
+        <div className="notification-list sidebar-notification-list">
           {notifications.length ? (
             notifications.slice(0, 4).map((item) => (
               <div className={item.isRead ? 'notification-row read' : 'notification-row'} key={item.id}>
@@ -153,7 +173,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
               </div>
             ))
           ) : (
-            <p>No notifications yet.</p>
+            <p className="sidebar-empty">No notifications yet.</p>
           )}
         </div>
       </div>

@@ -118,8 +118,12 @@ function readStoredUser(): User | null {
   }
 }
 
-function buildFavoriteMap(items: FavoriteItem[]): Record<string, boolean> {
-  return Object.fromEntries(items.map((item) => [item.postId, true]));
+function buildFavoriteMap(items: FavoriteItem[], folderName: string): Record<string, boolean> {
+  return Object.fromEntries(
+    items
+      .filter((item) => item.folderName === folderName)
+      .map((item) => [item.postId, true]),
+  );
 }
 
 export function useDashboard(): DashboardReturn {
@@ -178,6 +182,11 @@ export function useDashboard(): DashboardReturn {
       }
     })();
   }, [searchKeyword]);
+
+  useEffect(() => {
+    const activeFolder = favoriteFolderName.trim() || DEFAULT_FAVORITE_FOLDER;
+    setFavoritePostIds(buildFavoriteMap(favorites, activeFolder));
+  }, [favoriteFolderName, favorites]);
 
   useEffect(() => {
     if (!token) {
@@ -246,7 +255,6 @@ export function useDashboard(): DashboardReturn {
       setDraftEdits(Object.fromEntries(draftsData.items.map((item) => [item.id, item.content])));
       setNotifications(notificationsData.notifications);
       setFavorites(favoritesData.items);
-      setFavoritePostIds(buildFavoriteMap(favoritesData.items));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Session refresh failed.');
     }
@@ -412,13 +420,13 @@ export function useDashboard(): DashboardReturn {
       return;
     }
 
-    const favorited = favoritePostIds[postId] ?? false;
     const folderName = favoriteFolderName.trim() || DEFAULT_FAVORITE_FOLDER;
+    const favorited = favoritePostIds[postId] ?? false;
     setBusy(`favorite:${postId}`);
     try {
       await api.favoritePost(postId, favorited, token, folderName);
       await refreshAuthedData(token);
-      setMessage(favorited ? 'Removed from favorites.' : `Saved to ${folderName}.`);
+      setMessage(favorited ? `Removed from ${folderName}.` : `Saved to ${folderName}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to update favorite.');
     } finally {
