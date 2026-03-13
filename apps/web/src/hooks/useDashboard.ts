@@ -323,7 +323,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function saveProfile() {
-    if (!token) {
+    if (!token || !profile || !currentUser) {
       setMessage('Log in before editing profile.');
       return;
     }
@@ -333,15 +333,30 @@ export function useDashboard(): DashboardReturn {
     payload.bio = profileForm.bio.trim();
     if (profileForm.password.trim()) payload.password = profileForm.password.trim();
 
+    const previousProfile = profile;
+    const previousUser = currentUser;
+    const optimisticNickname = payload.nickname ?? profile.nickname;
+    const optimisticBio = payload.bio ?? profile.bio;
+
     setBusy('profile');
+    setProfile((prev) => (prev ? { ...prev, nickname: optimisticNickname, bio: optimisticBio } : prev));
+    setCurrentUser((prev) => (prev ? { ...prev, nickname: optimisticNickname, bio: optimisticBio } : prev));
+    if (typeof window !== 'undefined') {
+      const nextStoredUser = { ...currentUser, nickname: optimisticNickname, bio: optimisticBio };
+      window.localStorage.setItem(USER_KEY, JSON.stringify(nextStoredUser));
+    }
+
     try {
       const data = await api.updateMyUser(payload, token);
       setCurrentUser(data.user);
       if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      await refreshAuthedData(token);
-      setProfileForm((prev) => ({ ...prev, password: '' }));
+      setProfile((prev) => (prev ? { ...prev, nickname: data.user.nickname, bio: data.user.bio, updatedAt: data.user.updatedAt } : prev));
+      setProfileForm((prev) => ({ ...prev, nickname: data.user.nickname, bio: data.user.bio, password: '' }));
       setMessage('Profile updated.');
     } catch (error) {
+      setProfile(previousProfile);
+      setCurrentUser(previousUser);
+      if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(previousUser));
       setMessage(error instanceof Error ? error.message : 'Failed to save profile.');
     } finally {
       setBusy('');
@@ -359,8 +374,8 @@ export function useDashboard(): DashboardReturn {
       const data = await api.uploadAvatar(file, token);
       setCurrentUser(data.user);
       setAvatarPreview(data.user.avatarUrl ? apiBase(data.user.avatarUrl) : '');
+      setProfile((prev) => (prev ? { ...prev, avatarUrl: data.user.avatarUrl, updatedAt: data.user.updatedAt } : prev));
       if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      await refreshAuthedData(token);
       setMessage('Avatar updated.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to upload avatar.');
