@@ -1,0 +1,138 @@
+import { PostCard } from './PostCard';
+import type { Channel, Comment, Post, SearchTrend, Topic } from '../types/app';
+
+type DiscoveryPanelProps = {
+  busy: string;
+  channels: Channel[];
+  commentDrafts: Record<string, string>;
+  commentsByPost: Record<string, Comment[]>;
+  expandedComments: Record<string, boolean>;
+  followingAuthorIds: Record<string, boolean>;
+  likedPostIds: Record<string, boolean>;
+  searchInput: string;
+  searchResults: Post[];
+  searchTrends: SearchTrend[];
+  topics: Topic[];
+  onCommentDraftChange: (postId: string, value: string) => void;
+  onFollow: (authorId: string) => void;
+  onLike: (postId: string) => void;
+  onSearchInputChange: (value: string) => void;
+  onSearchKeywordChange: (value: string) => void;
+  onSubmitComment: (postId: string) => void;
+  onToggleComments: (postId: string) => void;
+};
+
+export function DiscoveryPanel({
+  busy,
+  channels,
+  commentDrafts,
+  commentsByPost,
+  expandedComments,
+  followingAuthorIds,
+  likedPostIds,
+  searchInput,
+  searchResults,
+  searchTrends,
+  topics,
+  onCommentDraftChange,
+  onFollow,
+  onLike,
+  onSearchInputChange,
+  onSearchKeywordChange,
+  onSubmitComment,
+  onToggleComments,
+}: DiscoveryPanelProps) {
+  return (
+    <section className="panel right-panel">
+      <div className="search-box">
+        <p className="section-label">搜索与发现</p>
+        <div className="search-row">
+          <input
+            value={searchInput}
+            onChange={(event) => onSearchInputChange(event.target.value)}
+            placeholder="搜索关键词，如 ai / travel"
+          />
+          <button
+            className="primary-button"
+            onClick={() => onSearchKeywordChange(searchInput.trim())}
+            type="button"
+          >
+            搜索
+          </button>
+        </div>
+      </div>
+
+      <div className="insight-block">
+        <h3>搜索结果</h3>
+        <div className="compact-list">
+          {searchResults.length ? (
+            searchResults.map((post) => (
+              <PostCard
+                busy={busy}
+                commentDraft={commentDrafts[post.id] ?? ''}
+                comments={commentsByPost[post.id] ?? []}
+                commentsOpen={expandedComments[post.id] ?? false}
+                followed={followingAuthorIds[post.authorId] ?? false}
+                key={post.id}
+                liked={likedPostIds[post.id] ?? false}
+                onCommentDraftChange={onCommentDraftChange}
+                onFollow={onFollow}
+                onLike={onLike}
+                onSubmitComment={onSubmitComment}
+                onToggleComments={onToggleComments}
+                post={post}
+              />
+            ))
+          ) : (
+            <p>输入关键词后查看结果。</p>
+          )}
+        </div>
+      </div>
+
+      <div className="insight-block">
+        <h3>热门话题</h3>
+        <div className="tag-list">
+          {topics.map((item) => (
+            <button
+              className="tag"
+              key={item.topic}
+              onClick={() => onSearchKeywordChange(item.topic)}
+              type="button"
+            >
+              #{item.topic} <span>{item.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="insight-block">
+        <h3>热门搜索</h3>
+        <div className="metric-list">
+          {searchTrends.map((item) => (
+            <button
+              className="metric-row"
+              key={item.keyword}
+              onClick={() => onSearchKeywordChange(item.keyword)}
+              type="button"
+            >
+              <span>{item.keyword}</span>
+              <strong>{item.count}</strong>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="insight-block">
+        <h3>频道分布</h3>
+        <div className="metric-list">
+          {channels.map((item) => (
+            <div className="metric-row static" key={item.channel}>
+              <span>{item.channel}</span>
+              <strong>{item.count}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
