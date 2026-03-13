@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 
 import { api } from '../services/api';
 import type {
@@ -13,134 +14,223 @@ import type {
   SearchTrend,
   Topic,
   User,
+  UserProfile,
+  ViewMode,
 } from '../types/app';
 
-export function useDashboard() {
-  const [authMode, setAuthMode] = useState<AuthMode>('login');
-  const [token, setToken] = useState('');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [feedMode, setFeedMode] = useState<FeedMode>('hot');
+type BusyState = '' | 'auth' | 'composer' | `like:${string}` | `follow:${string}` | `comment:${string}` | 'notifications';
+
+type DashboardState = {
+  authForm: AuthFormState;
+  authMode: AuthMode;
+  busy: BusyState;
+  channels: Channel[];
+  commentDrafts: Record<string, string>;
+  commentsByPost: Record<string, Comment[]>;
+  composer: ComposerState;
+  currentUser: User | null;
+  drafts: Post[];
+  expandedComments: Record<string, boolean>;
+  feedMode: FeedMode;
+  followingAuthorIds: Record<string, boolean>;
+  likedPostIds: Record<string, boolean>;
+  message: string;
+  notifications: Notification[];
+  posts: Post[];
+  profile: UserProfile | null;
+  profilePosts: Post[];
+  searchInput: string;
+  searchKeyword: string;
+  searchResults: Post[];
+  searchTrends: SearchTrend[];
+  token: string;
+  topics: Topic[];
+  viewMode: ViewMode;
+};
+
+type DashboardActions = {
+  logout: () => void;
+  markNotificationsRead: () => Promise<void>;
+  setAuthForm: Dispatch<SetStateAction<AuthFormState>>;
+  setAuthMode: Dispatch<SetStateAction<AuthMode>>;
+  setCommentDrafts: Dispatch<SetStateAction<Record<string, string>>>;
+  setComposer: Dispatch<SetStateAction<ComposerState>>;
+  setFeedMode: Dispatch<SetStateAction<FeedMode>>;
+  setSearchInput: Dispatch<SetStateAction<string>>;
+  setSearchKeyword: Dispatch<SetStateAction<string>>;
+  setViewMode: Dispatch<SetStateAction<ViewMode>>;
+  submitAuth: () => Promise<void>;
+  submitComment: (postId: string) => Promise<void>;
+  submitComposer: () => Promise<void>;
+  toggleComments: (postId: string) => Promise<void>;
+  toggleFollow: (authorId: string) => Promise<void>;
+  toggleLike: (postId: string) => Promise<void>;
+};
+
+export type DashboardReturn = {
+  state: DashboardState;
+  actions: DashboardActions;
+};
+
+const TOKEN_KEY = 'fork-weibo-token';
+const USER_KEY = 'fork-weibo-user';
+
+function readStoredUser(): User | null {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+  }
+}
+
+export function useDashboard(): DashboardReturn {
+  const [token, setToken] = useState(() => (typeof window === 'undefined' ? '' : window.localStorage.getItem(TOKEN_KEY) ?? ''));
+  const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser());
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [profilePosts, setProfilePosts] = useState<Post[]>([]);
+  const [drafts, setDrafts] = useState<Post[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [searchTrends, setSearchTrends] = useState<SearchTrend[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [searchResults, setSearchResults] = useState<Post[]>([]);
+  const [searchInput, setSearchInput] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [searchInput, setSearchInput] = useState('ai');
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [likedPostIds, setLikedPostIds] = useState<Record<string, boolean>>({});
-  const [followingAuthorIds, setFollowingAuthorIds] = useState<Record<string, boolean>>({});
   const [commentsByPost, setCommentsByPost] = useState<Record<string, Comment[]>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
-  const [authForm, setAuthForm] = useState<AuthFormState>({
-    username: '',
-    password: '',
-    nickname: '',
-  });
-  const [composer, setComposer] = useState<ComposerState>({ content: '', status: 'published' });
-  const [busy, setBusy] = useState('');
+  const [likedPostIds, setLikedPostIds] = useState<Record<string, boolean>>({});
+  const [followingAuthorIds, setFollowingAuthorIds] = useState<Record<string, boolean>>({});
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [viewMode, setViewMode] = useState<ViewMode>('feed');
+  const [feedMode, setFeedMode] = useState<FeedMode>('hot');
+  const [busy, setBusy] = useState<BusyState>('');
   const [message, setMessage] = useState('');
+  const [authForm, setAuthForm] = useState<AuthFormState>({ username: '', password: '', nickname: '' });
+  const [composer, setComposer] = useState<ComposerState>({ content: '', status: 'published' });
 
   useEffect(() => {
     void loadDiscovery();
   }, []);
 
   useEffect(() => {
-    void loadFeed(feedMode);
+    void loadFeed(feedMode, token || undefined);
   }, [feedMode, token]);
 
   useEffect(() => {
-    if (!token) {
-      setNotifications([]);
-      return;
-    }
-    void loadNotifications();
-  }, [token]);
-
-  useEffect(() => {
-    if (!searchKeyword) {
+    if (!searchKeyword.trim()) {
       setSearchResults([]);
       return;
     }
-    void searchPosts(searchKeyword);
+
+    void (async () => {
+      try {
+        const data = await api.search(searchKeyword.trim());
+        setSearchResults(data.items);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : 'Search failed.');
+      }
+    })();
   }, [searchKeyword]);
 
-  async function loadFeed(mode: FeedMode) {
-    try {
-      const data = await api.getFeed(mode, token || undefined);
-      setPosts(data.items);
-    } catch (error) {
-      if (mode !== 'hot') {
-        setPosts([]);
-      }
-      setMessage(error instanceof Error ? error.message : '加载信息流失败');
+  useEffect(() => {
+    if (!token) {
+      setProfile(null);
+      setProfilePosts([]);
+      setDrafts([]);
+      setNotifications([]);
+      return;
     }
-  }
+
+    void refreshAuthedData(token);
+  }, [token]);
 
   async function loadDiscovery() {
     try {
-      const [topicsData, searchesData, channelsData] = await Promise.all([
+      const [topicData, trendData, channelData] = await Promise.all([
         api.getTopics(),
         api.getSearchTrends(),
         api.getChannels(),
       ]);
-      setTopics(topicsData.items);
-      setSearchTrends(searchesData.items);
-      setChannels(channelsData.items);
+      setTopics(topicData.items);
+      setSearchTrends(trendData.items);
+      setChannels(channelData.items);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '加载发现页失败');
+      setMessage(error instanceof Error ? error.message : 'Discovery load failed.');
     }
   }
 
-  async function loadNotifications() {
-    if (!token) {
-      return;
-    }
+  async function loadFeed(mode: FeedMode, activeToken?: string) {
     try {
-      const data = await api.getNotifications(token);
-      setNotifications(data.notifications);
+      const data = await api.getFeed(mode, activeToken);
+      setPosts(data.items);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '加载通知失败');
+      setMessage(error instanceof Error ? error.message : 'Feed load failed.');
     }
   }
 
-  async function loadComments(postId: string) {
+  async function refreshAuthedData(activeToken: string) {
     try {
-      const data = await api.getComments(postId);
-      setCommentsByPost((prev) => ({ ...prev, [postId]: data.comments }));
+      const meData = await api.getMyUser(activeToken);
+      const me = meData.user;
+      setCurrentUser(me);
+      if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(me));
+
+      const [profileData, profilePostsData, draftsData, notificationsData] = await Promise.all([
+        api.getProfile(me.id),
+        api.getPosts({ authorId: me.id, status: 'published', pageSize: 20 }, activeToken),
+        api.getPosts({ authorId: me.id, status: 'draft', pageSize: 20 }, activeToken),
+        api.getNotifications(activeToken),
+      ]);
+
+      setProfile(profileData.profile);
+      setProfilePosts(profilePostsData.items);
+      setDrafts(draftsData.items);
+      setNotifications(notificationsData.notifications);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '加载评论失败');
+      setMessage(error instanceof Error ? error.message : 'Session refresh failed.');
     }
   }
 
-  async function searchPosts(keyword: string) {
-    try {
-      const data = await api.search(keyword);
-      setSearchResults(data.items);
-      void loadDiscovery();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '搜索失败');
+  function logout() {
+    setToken('');
+    setCurrentUser(null);
+    setProfile(null);
+    setProfilePosts([]);
+    setDrafts([]);
+    setNotifications([]);
+    setLikedPostIds({});
+    setFollowingAuthorIds({});
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(TOKEN_KEY);
+      window.localStorage.removeItem(USER_KEY);
     }
+    setMessage('Signed out.');
   }
 
   async function submitAuth() {
     setBusy('auth');
     setMessage('');
     try {
-      const data =
-        authMode === 'login'
-          ? await api.login({ username: authForm.username, password: authForm.password })
-          : await api.register({
-              username: authForm.username,
-              password: authForm.password,
-              nickname: authForm.nickname || authForm.username,
-            });
-      setToken(data.token);
-      setCurrentUser(data.user);
-      setMessage(`${authMode === 'login' ? '登录' : '注册'}成功`);
+      const payload = authMode === 'login'
+        ? await api.login({ username: authForm.username, password: authForm.password })
+        : await api.register({ username: authForm.username, password: authForm.password, nickname: authForm.nickname });
+
+      setToken(payload.token);
+      setCurrentUser(payload.user);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(TOKEN_KEY, payload.token);
+        window.localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+      }
+      setAuthForm({ username: '', password: '', nickname: '' });
+      setViewMode('profile');
+      setMessage(authMode === 'login' ? 'Logged in.' : 'Account created.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '认证失败');
+      setMessage(error instanceof Error ? error.message : 'Authentication failed.');
     } finally {
       setBusy('');
     }
@@ -148,19 +238,24 @@ export function useDashboard() {
 
   async function submitComposer() {
     if (!token) {
-      setMessage('请先登录后再发帖');
+      setMessage('Log in before posting.');
       return;
     }
+    if (!composer.content.trim()) {
+      setMessage('Post content cannot be empty.');
+      return;
+    }
+
     setBusy('composer');
     setMessage('');
     try {
-      await api.createPost(composer, token);
+      await api.createPost({ content: composer.content.trim(), status: composer.status }, token);
       setComposer({ content: '', status: 'published' });
-      setMessage('内容已提交');
-      void loadFeed(feedMode);
-      void loadDiscovery();
+      setMessage(composer.status === 'draft' ? 'Draft saved.' : 'Post published.');
+      await Promise.all([loadFeed(feedMode, token), refreshAuthedData(token), loadDiscovery()]);
+      setViewMode(composer.status === 'draft' ? 'drafts' : 'feed');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '发布失败');
+      setMessage(error instanceof Error ? error.message : 'Failed to submit post.');
     } finally {
       setBusy('');
     }
@@ -168,69 +263,79 @@ export function useDashboard() {
 
   async function toggleLike(postId: string) {
     if (!token) {
-      setMessage('请先登录后再点赞');
+      setMessage('Log in before liking a post.');
       return;
     }
+
     const liked = likedPostIds[postId] ?? false;
     setBusy(`like:${postId}`);
-    setMessage('');
     try {
       await api.likePost(postId, liked, token);
       setLikedPostIds((prev) => ({ ...prev, [postId]: !liked }));
-      void loadNotifications();
-      void loadFeed(feedMode);
+      await Promise.all([loadFeed(feedMode, token), refreshAuthedData(token)]);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '点赞操作失败');
+      setMessage(error instanceof Error ? error.message : 'Failed to update like.');
     } finally {
       setBusy('');
     }
   }
 
   async function toggleFollow(authorId: string) {
-    if (!token || !currentUser) {
-      setMessage('请先登录后再关注');
+    if (!token) {
+      setMessage('Log in before following users.');
       return;
     }
-    if (authorId === currentUser.id) {
-      setMessage('不能关注自己');
+    if (authorId === currentUser?.id) {
+      setMessage('You cannot follow yourself.');
       return;
     }
+
     const followed = followingAuthorIds[authorId] ?? false;
     setBusy(`follow:${authorId}`);
-    setMessage('');
     try {
       await api.followAuthor(authorId, followed, token);
       setFollowingAuthorIds((prev) => ({ ...prev, [authorId]: !followed }));
-      void loadNotifications();
-      if (feedMode === 'following') {
-        void loadFeed(feedMode);
-      }
+      await refreshAuthedData(token);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '关注操作失败');
+      setMessage(error instanceof Error ? error.message : 'Failed to update follow state.');
     } finally {
       setBusy('');
     }
   }
 
+  async function toggleComments(postId: string) {
+    const nextOpen = !(expandedComments[postId] ?? false);
+    setExpandedComments((prev) => ({ ...prev, [postId]: nextOpen }));
+    if (!nextOpen || commentsByPost[postId]) return;
+
+    try {
+      const data = await api.getComments(postId);
+      setCommentsByPost((prev) => ({ ...prev, [postId]: data.comments }));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to load comments.');
+    }
+  }
+
   async function submitComment(postId: string) {
     if (!token) {
-      setMessage('请先登录后再评论');
+      setMessage('Log in before commenting.');
       return;
     }
-    const content = commentDrafts[postId]?.trim();
+
+    const content = (commentDrafts[postId] ?? '').trim();
     if (!content) {
-      setMessage('评论内容不能为空');
+      setMessage('Comment cannot be empty.');
       return;
     }
+
     setBusy(`comment:${postId}`);
-    setMessage('');
     try {
-      await api.createComment(postId, content, token);
+      const data = await api.createComment(postId, content, token);
+      setCommentsByPost((prev) => ({ ...prev, [postId]: [...(prev[postId] ?? []), data.comment] }));
       setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
-      await loadComments(postId);
-      void loadNotifications();
+      await refreshAuthedData(token);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '评论失败');
+      setMessage(error instanceof Error ? error.message : 'Failed to create comment.');
     } finally {
       setBusy('');
     }
@@ -238,73 +343,66 @@ export function useDashboard() {
 
   async function markNotificationsRead() {
     if (!token) {
+      setMessage('Log in before managing notifications.');
       return;
     }
+
+    setBusy('notifications');
     try {
       await api.markNotificationsRead(token);
-      await loadNotifications();
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '标记已读失败');
+      setMessage(error instanceof Error ? error.message : 'Failed to mark notifications as read.');
+    } finally {
+      setBusy('');
     }
-  }
-
-  function toggleComments(postId: string) {
-    const next = !(expandedComments[postId] ?? false);
-    setExpandedComments((prev) => ({ ...prev, [postId]: next }));
-    if (next && !commentsByPost[postId]) {
-      void loadComments(postId);
-    }
-  }
-
-  function logout() {
-    setToken('');
-    setCurrentUser(null);
-    setNotifications([]);
-    setLikedPostIds({});
-    setFollowingAuthorIds({});
-    setFeedMode('hot');
   }
 
   return {
     state: {
-      authMode,
-      token,
-      currentUser,
-      feedMode,
-      posts,
-      topics,
-      searchTrends,
-      channels,
-      searchResults,
-      searchKeyword,
-      searchInput,
-      notifications,
-      likedPostIds,
-      followingAuthorIds,
-      commentsByPost,
-      commentDrafts,
-      expandedComments,
       authForm,
-      composer,
+      authMode,
       busy,
+      channels,
+      commentDrafts,
+      commentsByPost,
+      composer,
+      currentUser,
+      drafts,
+      expandedComments,
+      feedMode,
+      followingAuthorIds,
+      likedPostIds,
       message,
+      notifications,
+      posts,
+      profile,
+      profilePosts,
+      searchInput,
+      searchKeyword,
+      searchResults,
+      searchTrends,
+      token,
+      topics,
+      viewMode,
     },
     actions: {
-      setAuthMode,
-      setFeedMode,
-      setSearchKeyword,
-      setSearchInput,
-      setAuthForm,
-      setComposer,
-      setCommentDrafts,
-      submitAuth,
-      submitComposer,
-      toggleLike,
-      toggleFollow,
-      submitComment,
-      toggleComments,
-      markNotificationsRead,
       logout,
+      markNotificationsRead,
+      setAuthForm,
+      setAuthMode,
+      setCommentDrafts,
+      setComposer,
+      setFeedMode,
+      setSearchInput,
+      setSearchKeyword,
+      setViewMode,
+      submitAuth,
+      submitComment,
+      submitComposer,
+      toggleComments,
+      toggleFollow,
+      toggleLike,
     },
   };
 }

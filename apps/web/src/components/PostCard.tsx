@@ -15,29 +15,31 @@ type PostCardProps = {
   onSubmitComment: (postId: string) => void;
 };
 
-export function PostCard({
-  post,
-  liked,
-  followed,
-  comments,
-  commentsOpen,
-  commentDraft,
-  busy,
-  onLike,
-  onFollow,
-  onToggleComments,
-  onCommentDraftChange,
-  onSubmitComment,
-}: PostCardProps) {
+export function PostCard(props: PostCardProps) {
+  const {
+    post,
+    liked,
+    followed,
+    comments,
+    commentsOpen,
+    commentDraft,
+    busy,
+    onLike,
+    onFollow,
+    onToggleComments,
+    onCommentDraftChange,
+    onSubmitComment,
+  } = props;
+
   return (
     <article className="post-card">
       <div className="post-meta">
-        <span>{post.status === 'published' ? '已发布' : '草稿'}</span>
+        <span>{post.status === 'published' ? 'Published' : 'Draft'}</span>
         <span>{new Date(post.updatedAt).toLocaleString()}</span>
       </div>
       <p>{post.content}</p>
       <div className="post-footer">
-        <span>作者 {post.authorId.slice(0, 8)}</span>
+        <span>Author {post.authorId.slice(0, 8)}</span>
         <span>{post.id.slice(0, 8)}</span>
       </div>
       <div className="post-actions">
@@ -47,7 +49,7 @@ export function PostCard({
           onClick={() => onLike(post.id)}
           type="button"
         >
-          {liked ? '取消点赞' : '点赞'}
+          {liked ? 'Unlike' : 'Like'}
         </button>
         <button
           className={followed ? 'active-action' : ''}
@@ -55,10 +57,10 @@ export function PostCard({
           onClick={() => onFollow(post.authorId)}
           type="button"
         >
-          {followed ? '取消关注' : '关注作者'}
+          {followed ? 'Unfollow' : 'Follow author'}
         </button>
         <button onClick={() => onToggleComments(post.id)} type="button">
-          {commentsOpen ? '收起评论' : '查看评论'}
+          {commentsOpen ? 'Hide comments' : 'Show comments'}
         </button>
       </div>
       {commentsOpen ? (
@@ -72,13 +74,13 @@ export function PostCard({
                 </div>
               ))
             ) : (
-              <p className="comment-empty">还没有评论。</p>
+              <p className="comment-empty">No comments yet.</p>
             )}
           </div>
           <div className="comment-composer">
             <input
               onChange={(event) => onCommentDraftChange(post.id, event.target.value)}
-              placeholder="写下你的评论"
+              placeholder="Write a comment"
               value={commentDraft}
             />
             <button
@@ -86,7 +88,7 @@ export function PostCard({
               onClick={() => onSubmitComment(post.id)}
               type="button"
             >
-              发送
+              Reply
             </button>
           </div>
         </div>

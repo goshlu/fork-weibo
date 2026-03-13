@@ -1,0 +1,14 @@
+{
+  "users": [
+    {
+      "id": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "username": "admin",
+      "nickname": "wisper",
+      "bio": "",
+      "passwordHash": "$2b$10$blksRkl3b3.Ojjfpr76NHeM68B6sWTRDH2r5MLCoq0vYp03Jn8KFO",
+      "avatarUrl": null,
+      "createdAt": "2026-03-13T07:21:31.778Z",
+      "updatedAt": "2026-03-13T07:21:31.778Z"
+    }
+  ]
+}

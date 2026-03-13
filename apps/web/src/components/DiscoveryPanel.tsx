@@ -22,48 +22,46 @@ type DiscoveryPanelProps = {
   onToggleComments: (postId: string) => void;
 };
 
-export function DiscoveryPanel({
-  busy,
-  channels,
-  commentDrafts,
-  commentsByPost,
-  expandedComments,
-  followingAuthorIds,
-  likedPostIds,
-  searchInput,
-  searchResults,
-  searchTrends,
-  topics,
-  onCommentDraftChange,
-  onFollow,
-  onLike,
-  onSearchInputChange,
-  onSearchKeywordChange,
-  onSubmitComment,
-  onToggleComments,
-}: DiscoveryPanelProps) {
+export function DiscoveryPanel(props: DiscoveryPanelProps) {
+  const {
+    busy,
+    channels,
+    commentDrafts,
+    commentsByPost,
+    expandedComments,
+    followingAuthorIds,
+    likedPostIds,
+    searchInput,
+    searchResults,
+    searchTrends,
+    topics,
+    onCommentDraftChange,
+    onFollow,
+    onLike,
+    onSearchInputChange,
+    onSearchKeywordChange,
+    onSubmitComment,
+    onToggleComments,
+  } = props;
+
   return (
     <section className="panel right-panel">
       <div className="search-box">
-        <p className="section-label">搜索与发现</p>
+        <p className="section-label">Search and Discover</p>
         <div className="search-row">
           <input
             value={searchInput}
             onChange={(event) => onSearchInputChange(event.target.value)}
-            placeholder="搜索关键词，如 ai / travel"
+            placeholder="Search keywords like ai or travel"
           />
-          <button
-            className="primary-button"
-            onClick={() => onSearchKeywordChange(searchInput.trim())}
-            type="button"
-          >
-            搜索
+          <button className="primary-button" onClick={() => onSearchKeywordChange(searchInput.trim())} type="button">
+            Search
           </button>
         </div>
       </div>
 
       <div className="insight-block">
-        <h3>搜索结果</h3>
+        <h3>Search Results</h3>
         <div className="compact-list">
           {searchResults.length ? (
             searchResults.map((post) => (
@@ -84,21 +82,16 @@ export function DiscoveryPanel({
               />
             ))
           ) : (
-            <p>输入关键词后查看结果。</p>
+            <p>Run a keyword search to populate this panel.</p>
           )}
         </div>
       </div>
 
       <div className="insight-block">
-        <h3>热门话题</h3>
+        <h3>Trending Topics</h3>
         <div className="tag-list">
           {topics.map((item) => (
-            <button
-              className="tag"
-              key={item.topic}
-              onClick={() => onSearchKeywordChange(item.topic)}
-              type="button"
-            >
+            <button className="tag" key={item.topic} onClick={() => onSearchKeywordChange(item.topic)} type="button">
               #{item.topic} <span>{item.count}</span>
             </button>
           ))}
@@ -106,15 +99,10 @@ export function DiscoveryPanel({
       </div>
 
       <div className="insight-block">
-        <h3>热门搜索</h3>
+        <h3>Hot Searches</h3>
         <div className="metric-list">
           {searchTrends.map((item) => (
-            <button
-              className="metric-row"
-              key={item.keyword}
-              onClick={() => onSearchKeywordChange(item.keyword)}
-              type="button"
-            >
+            <button className="metric-row" key={item.keyword} onClick={() => onSearchKeywordChange(item.keyword)} type="button">
               <span>{item.keyword}</span>
               <strong>{item.count}</strong>
             </button>
@@ -123,7 +111,7 @@ export function DiscoveryPanel({
       </div>
 
       <div className="insight-block">
-        <h3>频道分布</h3>
+        <h3>Channel Mix</h3>
         <div className="metric-list">
           {channels.map((item) => (
             <div className="metric-row static" key={item.channel}>

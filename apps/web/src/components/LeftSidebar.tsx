@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 
-import type { AuthFormState, AuthMode, Notification, User } from '../types/app';
+import { viewTitles, type AuthFormState, type AuthMode, type Notification, type User, type ViewMode } from '../types/app';
 
 type LeftSidebarProps = {
   authMode: AuthMode;
@@ -8,31 +8,56 @@ type LeftSidebarProps = {
   busy: string;
   currentUser: User | null;
   notifications: Notification[];
+  viewMode: ViewMode;
   onAuthModeChange: (mode: AuthMode) => void;
   onAuthFormChange: Dispatch<SetStateAction<AuthFormState>>;
   onSubmitAuth: () => void;
   onMarkNotificationsRead: () => void;
   onLogout: () => void;
+  onViewModeChange: (mode: ViewMode) => void;
 };
 
-export function LeftSidebar({
-  authMode,
-  authForm,
-  busy,
-  currentUser,
-  notifications,
-  onAuthModeChange,
-  onAuthFormChange,
-  onSubmitAuth,
-  onMarkNotificationsRead,
-  onLogout,
-}: LeftSidebarProps) {
+export function LeftSidebar(props: LeftSidebarProps) {
+  const {
+    authMode,
+    authForm,
+    busy,
+    currentUser,
+    notifications,
+    viewMode,
+    onAuthModeChange,
+    onAuthFormChange,
+    onSubmitAuth,
+    onMarkNotificationsRead,
+    onLogout,
+    onViewModeChange,
+  } = props;
+
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
+
   return (
     <section className="panel left-panel">
       <div className="brand-block">
         <p className="eyebrow">fork-weibo</p>
-        <h1>微博式社区控制台</h1>
-        <p className="lede">现在前端已接入认证、发帖、信息流、搜索、点赞、评论、关注和通知。</p>
+        <h1>Social Dashboard</h1>
+        <p className="lede">
+          Service layer, state layer, and component layer are separated. Profile, drafts,
+          and notifications are now first-class pages.
+        </p>
+      </div>
+
+      <div className="nav-list">
+        {(['feed', 'profile', 'drafts', 'notifications'] as ViewMode[]).map((mode) => (
+          <button
+            className={viewMode === mode ? 'nav-button active' : 'nav-button'}
+            key={mode}
+            onClick={() => onViewModeChange(mode)}
+            type="button"
+          >
+            <span>{viewTitles[mode]}</span>
+            {mode === 'notifications' ? <strong>{unreadCount}</strong> : null}
+          </button>
+        ))}
       </div>
 
       <div className="auth-switch">
@@ -41,14 +66,14 @@ export function LeftSidebar({
           onClick={() => onAuthModeChange('login')}
           type="button"
         >
-          登录
+          Login
         </button>
         <button
           className={authMode === 'register' ? 'active' : ''}
           onClick={() => onAuthModeChange('register')}
           type="button"
         >
-          注册
+          Register
         </button>
       </div>
 
@@ -60,78 +85,75 @@ export function LeftSidebar({
         }}
       >
         <label>
-          用户名
+          Username
           <input
-            value={authForm.username}
             onChange={(event) =>
               onAuthFormChange((prev) => ({ ...prev, username: event.target.value }))
             }
-            placeholder="例如 coder01"
+            placeholder="coder01"
+            value={authForm.username}
           />
         </label>
         <label>
-          密码
+          Password
           <input
-            type="password"
-            value={authForm.password}
             onChange={(event) =>
               onAuthFormChange((prev) => ({ ...prev, password: event.target.value }))
             }
-            placeholder="至少 8 位"
+            placeholder="At least 8 chars"
+            type="password"
+            value={authForm.password}
           />
         </label>
         {authMode === 'register' ? (
           <label>
-            昵称
+            Nickname
             <input
-              value={authForm.nickname}
               onChange={(event) =>
                 onAuthFormChange((prev) => ({ ...prev, nickname: event.target.value }))
               }
-              placeholder="展示名"
+              placeholder="Display name"
+              value={authForm.nickname}
             />
           </label>
         ) : null}
         <button className="primary-button" disabled={busy === 'auth'} type="submit">
-          {busy === 'auth' ? '处理中...' : authMode === 'login' ? '登录' : '注册'}
+          {busy === 'auth' ? 'Working...' : authMode === 'login' ? 'Login' : 'Register'}
         </button>
       </form>
 
       <div className="user-box">
-        <h2>当前会话</h2>
+        <h2>Session</h2>
         {currentUser ? (
           <div>
             <strong>{currentUser.nickname}</strong>
             <p>@{currentUser.username}</p>
             <button className="ghost-button" onClick={onLogout} type="button">
-              退出
+              Logout
             </button>
           </div>
         ) : (
-          <p>未登录时仍可查看热门流和公开搜索。</p>
+          <p>You can still browse the hot feed and public search results.</p>
         )}
       </div>
 
       <div className="insight-block">
         <div className="inline-head">
-          <h3>通知</h3>
+          <h3>Notification Preview</h3>
           <button className="ghost-button" onClick={onMarkNotificationsRead} type="button">
-            全部已读
+            Mark all read
           </button>
         </div>
         <div className="notification-list">
           {notifications.length ? (
-            notifications.map((item) => (
-              <div
-                className={item.isRead ? 'notification-row read' : 'notification-row'}
-                key={item.id}
-              >
+            notifications.slice(0, 4).map((item) => (
+              <div className={item.isRead ? 'notification-row read' : 'notification-row'} key={item.id}>
                 <strong>{item.type}</strong>
                 <p>{item.message}</p>
               </div>
             ))
           ) : (
-            <p>暂无通知。</p>
+            <p>No notifications yet.</p>
           )}
         </div>
       </div>

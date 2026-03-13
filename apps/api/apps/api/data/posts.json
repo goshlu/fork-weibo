@@ -1,0 +1,14 @@
+{
+  "posts": [
+    {
+      "id": "cfc822a9-f2dd-4ee6-a22c-5987f75e7eb9",
+      "authorId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "content": "#AI,sdasdasdasd",
+      "images": [],
+      "status": "published",
+      "createdAt": "2026-03-13T07:22:13.441Z",
+      "updatedAt": "2026-03-13T07:22:13.441Z",
+      "publishedAt": "2026-03-13T07:22:13.441Z"
+    }
+  ]
+}

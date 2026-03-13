@@ -1,10 +1,11 @@
+import { CenterPanel } from './components/CenterPanel';
 import { DiscoveryPanel } from './components/DiscoveryPanel';
-import { FeedPanel } from './components/FeedPanel';
 import { LeftSidebar } from './components/LeftSidebar';
 import { useDashboard } from './hooks/useDashboard';
 
 export default function App() {
-  const { state, actions } = useDashboard();
+  const dashboard = useDashboard();
+  const { state, actions } = dashboard;
 
   return (
     <main className="shell">
@@ -19,29 +20,10 @@ export default function App() {
         onLogout={actions.logout}
         onMarkNotificationsRead={() => void actions.markNotificationsRead()}
         onSubmitAuth={() => void actions.submitAuth()}
+        onViewModeChange={actions.setViewMode}
+        viewMode={state.viewMode}
       />
-      <FeedPanel
-        busy={state.busy}
-        commentDrafts={state.commentDrafts}
-        commentsByPost={state.commentsByPost}
-        composer={state.composer}
-        expandedComments={state.expandedComments}
-        feedMode={state.feedMode}
-        followingAuthorIds={state.followingAuthorIds}
-        likedPostIds={state.likedPostIds}
-        message={state.message}
-        onCommentDraftChange={(postId, value) =>
-          actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))
-        }
-        onComposerChange={actions.setComposer}
-        onFeedModeChange={actions.setFeedMode}
-        onFollow={(authorId) => void actions.toggleFollow(authorId)}
-        onLike={(postId) => void actions.toggleLike(postId)}
-        onSubmitComment={(postId) => void actions.submitComment(postId)}
-        onSubmitComposer={() => void actions.submitComposer()}
-        onToggleComments={actions.toggleComments}
-        posts={state.posts}
-      />
+      <CenterPanel dashboard={dashboard} />
       <DiscoveryPanel
         busy={state.busy}
         channels={state.channels}
@@ -50,16 +32,11 @@ export default function App() {
         expandedComments={state.expandedComments}
         followingAuthorIds={state.followingAuthorIds}
         likedPostIds={state.likedPostIds}
-        onCommentDraftChange={(postId, value) =>
-          actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))
-        }
+        onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
         onFollow={(authorId) => void actions.toggleFollow(authorId)}
         onLike={(postId) => void actions.toggleLike(postId)}
         onSearchInputChange={actions.setSearchInput}
-        onSearchKeywordChange={(value) => {
-          actions.setSearchInput(value);
-          actions.setSearchKeyword(value);
-        }}
+        onSearchKeywordChange={(value) => { actions.setSearchInput(value); actions.setSearchKeyword(value); }}
         onSubmitComment={(postId) => void actions.submitComment(postId)}
         onToggleComments={actions.toggleComments}
         searchInput={state.searchInput}
