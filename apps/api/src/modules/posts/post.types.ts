@@ -17,7 +17,7 @@ export interface PostRecord {
   publishedAt: string | null;
 }
 
-export interface PostAuthorSummary extends Pick<PublicUser, 'id' | 'username' | 'nickname' | 'avatarUrl'> {}
+export type PostAuthorSummary = Pick<PublicUser, 'id' | 'username' | 'nickname' | 'avatarUrl'>;
 
 export interface PostStats {
   likesCount: number;
