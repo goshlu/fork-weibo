@@ -1,19 +1,7 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import type { Notification } from '../../types/app';
 import { FilterTabs } from '../ui/FilterTabs';
-import {
-  formatNotificationTime,
-  notificationTypeLabel,
-  notificationActorLabel,
-  notificationActorHandle,
-  notificationActorInitial,
-  formatNotificationMessage,
-} from '../../utils/notification';
-
-function resolveMediaUrl(path: string): string {
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  return `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'}`.replace(/\/api$/, '') + path;
-}
+import { NotificationCard } from '../notifications/NotificationCard';
 
 type NotificationGroup = { label: string; items: Notification[] };
 
@@ -106,53 +94,12 @@ export function NotificationsPage({
             <div className="notification-group" key={group.label}>
               <p className="notification-group-label">{group.label}</p>
               {group.items.map((item) => (
-                <div
-                  className="notification-page-card-wrapper"
+                <NotificationCard
                   key={item.id}
-                >
-                  <button
-                    className={item.isRead ? 'notification-page-card read' : 'notification-page-card'}
-                    onClick={() => onOpenNotification(item)}
-                    type="button"
-                  >
-                    {!item.isRead && (
-                      <button
-                        className="notification-mark-read-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onMarkOneRead(item.id);
-                        }}
-                        title="Mark as read"
-                        type="button"
-                      >
-                        ✓
-                      </button>
-                    )}
-                    <div className="notification-card-head">
-                      <div className="notification-actor-avatar-wrap">
-                        <div className="notification-actor-avatar notification-actor-avatar-large">
-                          {item.actor?.avatarUrl ? (
-                            <img alt={notificationActorLabel(item)} className="notification-actor-avatar-image" src={resolveMediaUrl(item.actor.avatarUrl)} />
-                          ) : (
-                            <span>{notificationActorInitial(item)}</span>
-                          )}
-                        </div>
-                        {!item.isRead && <span aria-label="未读" className="notification-unread-dot" />}
-                      </div>
-                      <div className="notification-copy">
-                        <div className="post-meta notification-meta-row">
-                          <span>{notificationTypeLabel(item)}</span>
-                          <span>{formatNotificationTime(item.createdAt)}</span>
-                        </div>
-                        <div className="notification-actor-meta">
-                          <strong>{notificationActorLabel(item)}</strong>
-                          <span>{notificationActorHandle(item)}</span>
-                        </div>
-                        <p>{formatNotificationMessage(item)}</p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
+                  notification={item}
+                  onMarkRead={onMarkOneRead}
+                  onClick={onOpenNotification}
+                />
               ))}
             </div>
           ))
