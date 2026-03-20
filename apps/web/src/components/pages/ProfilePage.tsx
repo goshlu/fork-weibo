@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { ProfileEditor } from '../profile/ProfileEditor';
@@ -24,11 +24,13 @@ type ProfilePageProps = {
   onFavoriteFolderNameChange: (value: string) => void;
   onLike: (postId: string) => void;
   onFollow: (authorId: string) => void;
+  onOpenAuthor: (authorId: string) => void;
+  onOpenPost: (postId: string) => void;
   onToggleComments: (postId: string) => void;
   onCommentDraftChange: (postId: string, value: string) => void;
   onProfileFormChange: Dispatch<SetStateAction<ProfileFormState>>;
   onSaveProfile: () => void;
-  onSubmitComment: (postId: string) => void;
+  onSubmitComment: (postId: string, parentId?: string) => void;
   onUploadAvatar: (file: File) => void;
 };
 
@@ -103,6 +105,8 @@ export function ProfilePage(props: ProfilePageProps) {
     onFavoriteFolderNameChange,
     onLike,
     onFollow,
+    onOpenAuthor,
+    onOpenPost,
     onToggleComments,
     onCommentDraftChange,
     onProfileFormChange,
@@ -175,6 +179,8 @@ export function ProfilePage(props: ProfilePageProps) {
           onFavoriteFolderNameChange={onFavoriteFolderNameChange}
           onFollow={onFollow}
           onLike={onLike}
+          onOpenAuthor={onOpenAuthor}
+          onOpenPost={onOpenPost}
           onSubmitComment={onSubmitComment}
           onTabChange={setActiveTab}
           onToggleComments={onToggleComments}
@@ -184,3 +190,5 @@ export function ProfilePage(props: ProfilePageProps) {
     </>
   );
 }
+
+

@@ -1,7 +1,9 @@
 import { DraftsPage } from './pages/DraftsPage';
 import { FeedPage } from './pages/FeedPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { PostPage } from './pages/PostPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { UserPage } from './pages/UserPage';
 import type { DashboardReturn } from '../hooks/useDashboard';
 
 type CenterPanelProps = { dashboard: DashboardReturn };
@@ -29,7 +31,9 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           onFeedModeChange={actions.setFeedMode}
           onFollow={(authorId) => void actions.toggleFollow(authorId)}
           onLike={(postId) => void actions.toggleLike(postId)}
-          onSubmitComment={(postId) => void actions.submitComment(postId)}
+          onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
+          onOpenPost={(postId) => void actions.openPostDetail(postId)}
+          onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}
           onSubmitComposer={() => void actions.submitComposer()}
           onToggleComments={actions.toggleComments}
           posts={state.posts}
@@ -53,14 +57,59 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           onFavoriteFolderNameChange={actions.setFavoriteFolderName}
           onFollow={(authorId) => void actions.toggleFollow(authorId)}
           onLike={(postId) => void actions.toggleLike(postId)}
+          onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
+          onOpenPost={(postId) => void actions.openPostDetail(postId)}
           onProfileFormChange={actions.setProfileForm}
           onSaveProfile={() => void actions.saveProfile()}
-          onSubmitComment={(postId) => void actions.submitComment(postId)}
+          onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}
           onToggleComments={actions.toggleComments}
           onUploadAvatar={(file) => void actions.uploadAvatar(file)}
           posts={state.profilePosts}
           profile={state.profile}
           profileForm={state.profileForm}
+        />
+      ) : null}
+
+      {state.viewMode === 'user' ? (
+        <UserPage
+          busy={state.busy}
+          commentDrafts={state.commentDrafts}
+          commentsByPost={state.commentsByPost}
+          expandedComments={state.expandedComments}
+          favoritePostIds={state.favoritePostIds}
+          followingAuthorIds={state.followingAuthorIds}
+          likedPostIds={state.likedPostIds}
+          onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
+          onFavorite={(postId) => void actions.toggleFavorite(postId)}
+          onFollow={(authorId) => void actions.toggleFollow(authorId)}
+          onLike={(postId) => void actions.toggleLike(postId)}
+          onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
+          onOpenPost={(postId) => void actions.openPostDetail(postId)}
+          onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}
+          onToggleComments={actions.toggleComments}
+          posts={state.viewedUserPosts}
+          profile={state.viewedProfile}
+        />
+      ) : null}
+
+      {state.viewMode === 'post' ? (
+        <PostPage
+          busy={state.busy}
+          commentDraft={state.postDetail ? state.commentDrafts[state.postDetail.id] ?? '' : ''}
+          comments={state.postDetail ? state.commentsByPost[state.postDetail.id] ?? [] : []}
+          favoritePostIds={state.favoritePostIds}
+          followingAuthorIds={state.followingAuthorIds}
+          highlightedCommentId={state.postDetailHighlightCommentId}
+          likedPostIds={state.likedPostIds}
+          onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
+          onFavorite={(postId) => void actions.toggleFavorite(postId)}
+          onFollow={(authorId) => void actions.toggleFollow(authorId)}
+          onLike={(postId) => void actions.toggleLike(postId)}
+          onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
+          onOpenPost={(postId) => void actions.openPostDetail(postId)}
+          onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}
+          onToggleComments={actions.toggleComments}
+          post={state.postDetail}
         />
       ) : null}
 
@@ -80,8 +129,14 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
         <NotificationsPage
           notifications={state.notifications}
           onMarkAllRead={() => void actions.markNotificationsRead()}
+          onMarkOneRead={(id: string) => void actions.markOneNotificationRead(id)}
+          onOpenNotification={(notification) => void actions.openNotification(notification)}
+          onLoadMore={() => void actions.loadMoreNotifications()}
+          hasMore={state.notificationHasMore}
+          loadingMore={state.loadingMore}
         />
       ) : null}
     </section>
   );
 }
+

@@ -2,15 +2,17 @@ import type { UserProfile } from '../../types/app';
 
 type ProfileHeaderProps = {
   avatarPreview: string;
+  heading?: string;
   profile: UserProfile;
+  subtitle?: string;
 };
 
-export function ProfileHeader({ avatarPreview, profile }: ProfileHeaderProps) {
+export function ProfileHeader({ avatarPreview, heading = 'Profile', profile, subtitle }: ProfileHeaderProps) {
   return (
     <>
       <div className="toolbar simple-toolbar">
         <div>
-          <p className="section-label">Profile</p>
+          <p className="section-label">{heading}</p>
           <h2>{profile.nickname}</h2>
         </div>
       </div>
@@ -26,7 +28,7 @@ export function ProfileHeader({ avatarPreview, profile }: ProfileHeaderProps) {
           </div>
           <div className="profile-main">
             <strong>@{profile.username}</strong>
-            <p>{profile.bio || 'No bio yet.'}</p>
+            <p>{(subtitle ?? profile.bio) || 'No bio yet.'}</p>
           </div>
         </div>
         <div className="profile-stats">

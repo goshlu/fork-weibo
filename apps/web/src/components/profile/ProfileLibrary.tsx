@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 
 import { PostCard } from '../PostCard';
 import type { Comment, FavoriteItem, Post, ProfileTab } from '../../types/app';
@@ -20,7 +20,9 @@ type ProfileLibraryProps = {
   onFavoriteFolderNameChange: (value: string) => void;
   onFollow: (authorId: string) => void;
   onLike: (postId: string) => void;
-  onSubmitComment: (postId: string) => void;
+  onOpenAuthor: (authorId: string) => void;
+  onOpenPost: (postId: string) => void;
+  onSubmitComment: (postId: string, parentId?: string) => void;
   onTabChange: (tab: ProfileTab) => void;
   onToggleComments: (postId: string) => void;
 };
@@ -45,6 +47,7 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
     onFavoriteFolderNameChange,
     onFollow,
     onLike,
+    onOpenAuthor,
     onSubmitComment,
     onTabChange,
     onToggleComments,
@@ -148,6 +151,7 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
                 onFavorite={onFavorite}
                 onFollow={onFollow}
                 onLike={onLike}
+                onOpenAuthor={onOpenAuthor}
                 onSubmitComment={onSubmitComment}
                 onToggleComments={onToggleComments}
                 post={post}
@@ -161,3 +165,5 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
     </div>
   );
 }
+
+

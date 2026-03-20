@@ -1,4 +1,4 @@
-import { PostCard } from './PostCard';
+﻿import { PostCard } from './PostCard';
 import type { Channel, Comment, Post, SearchTrend, Topic } from '../types/app';
 
 type DiscoveryPanelProps = {
@@ -18,9 +18,11 @@ type DiscoveryPanelProps = {
   onFavorite: (postId: string) => void;
   onFollow: (authorId: string) => void;
   onLike: (postId: string) => void;
+  onOpenAuthor: (authorId: string) => void;
+  onOpenPost: (postId: string) => void;
   onSearchInputChange: (value: string) => void;
   onSearchKeywordChange: (value: string) => void;
-  onSubmitComment: (postId: string) => void;
+  onSubmitComment: (postId: string, parentId?: string) => void;
   onToggleComments: (postId: string) => void;
 };
 
@@ -42,6 +44,7 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
     onFavorite,
     onFollow,
     onLike,
+    onOpenAuthor,
     onSearchInputChange,
     onSearchKeywordChange,
     onSubmitComment,
@@ -82,6 +85,7 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
                 onFavorite={onFavorite}
                 onFollow={onFollow}
                 onLike={onLike}
+                onOpenAuthor={onOpenAuthor}
                 onSubmitComment={onSubmitComment}
                 onToggleComments={onToggleComments}
                 post={post}
@@ -130,3 +134,5 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
     </section>
   );
 }
+
+

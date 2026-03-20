@@ -19,6 +19,7 @@ export default function App() {
         onAuthModeChange={actions.setAuthMode}
         onLogout={actions.logout}
         onMarkNotificationsRead={() => void actions.markNotificationsRead()}
+        onOpenNotification={(notification) => void actions.openNotification(notification)}
         onSubmitAuth={() => void actions.submitAuth()}
         onViewModeChange={actions.setViewMode}
         viewMode={state.viewMode}
@@ -37,12 +38,14 @@ export default function App() {
         onFavorite={(postId) => void actions.toggleFavorite(postId)}
         onFollow={(authorId) => void actions.toggleFollow(authorId)}
         onLike={(postId) => void actions.toggleLike(postId)}
+        onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
+        onOpenPost={(postId) => void actions.openPostDetail(postId)}
         onSearchInputChange={actions.setSearchInput}
         onSearchKeywordChange={(value) => {
           actions.setSearchInput(value);
           actions.setSearchKeyword(value);
         }}
-        onSubmitComment={(postId) => void actions.submitComment(postId)}
+        onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}
         onToggleComments={actions.toggleComments}
         searchInput={state.searchInput}
         searchResults={state.searchResults}

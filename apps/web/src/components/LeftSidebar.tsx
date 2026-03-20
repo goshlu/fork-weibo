@@ -1,6 +1,88 @@
-import type { Dispatch, SetStateAction } from 'react';
+﻿import type { Dispatch, SetStateAction } from 'react';
 
 import { viewTitles, type AuthFormState, type AuthMode, type Notification, type User, type ViewMode } from '../types/app';
+
+function resolveMediaUrl(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'}`.replace(/\/api$/, '') + path;
+}
+
+function formatNotificationTime(createdAt: string): string {
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return createdAt;
+
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diffMs < minute) return 'just now';
+  if (diffMs < hour) return `${Math.max(1, Math.floor(diffMs / minute))}m ago`;
+  if (diffMs < day) return `${Math.max(1, Math.floor(diffMs / hour))}h ago`;
+
+  const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate()).getTime();
+  const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dayDiff = Math.round((todayDay - createdDay) / day);
+  const timeText = created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  if (dayDiff === 1) return `昨天 ${timeText}`;
+  if (dayDiff < 7) return `${dayDiff}d ago`;
+
+  return created.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function notificationTypeLabel(notification: Notification): string {
+  if (notification.type === 'like') return 'Likes';
+  if (notification.type === 'favorite') return 'Saves';
+  if (notification.type === 'comment') return 'Replies';
+  return 'Follows';
+}
+
+function notificationActionLabel(notification: Notification): string {
+  if (notification.entityType === 'comment') return 'Jump to comment';
+  if (notification.entityType === 'post') return 'View post';
+  return 'Open profile';
+}
+
+function notificationActorLabel(notification: Notification): string {
+  const nickname = notification.actor?.nickname?.trim();
+  if (nickname) return nickname;
+  const username = notification.actor?.username?.trim();
+  if (username) return `@${username}`;
+  return 'Someone';
+}
+
+function notificationActorHandle(notification: Notification): string {
+  const username = notification.actor?.username?.trim();
+  if (username) return `@${username}`;
+  return `ID ${notification.actorId.slice(0, 8)}`;
+}
+
+function notificationActorInitial(notification: Notification): string {
+  return notificationActorLabel(notification).trim().charAt(0).toUpperCase() || 'S';
+}
+
+function formatNotificationMessage(notification: Notification): string {
+  const actor = notificationActorLabel(notification);
+  const message = notification.message.trim();
+  if (!message) return 'You have a new notification.';
+  if (message === 'liked your post' || message === 'Someone liked your post.') return `${actor} liked your post.`;
+  if (message === 'replied to your comment' || message === 'Someone replied to your comment.') return `${actor} replied to your comment.`;
+  if (message === 'commented on your post' || message === 'Someone commented on your post.') return `${actor} commented on your post.`;
+  if (message === 'started following you' || message === 'Someone started following you.') return `${actor} started following you.`;
+  if (message.startsWith('favorited your post into ')) {
+    const folderName = message.replace('favorited your post into ', '').trim();
+    return `${actor} saved your post to "${folderName}".`;
+  }
+  if (/^Someone saved your post to ".+"\.$/.test(message)) {
+    return message.replace(/^Someone/, actor);
+  }
+  if (/^Someone [^.]+\.$/.test(message)) {
+    return message.replace(/^Someone/, actor);
+  }
+  return `${message.charAt(0).toUpperCase()}${message.slice(1)}.`;
+}
 
 type LeftSidebarProps = {
   authMode: AuthMode;
@@ -11,6 +93,7 @@ type LeftSidebarProps = {
   viewMode: ViewMode;
   onAuthModeChange: (mode: AuthMode) => void;
   onAuthFormChange: Dispatch<SetStateAction<AuthFormState>>;
+  onOpenNotification: (notification: Notification) => void;
   onSubmitAuth: () => void;
   onMarkNotificationsRead: () => void;
   onLogout: () => void;
@@ -27,6 +110,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
     viewMode,
     onAuthModeChange,
     onAuthFormChange,
+    onOpenNotification,
     onSubmitAuth,
     onMarkNotificationsRead,
     onLogout,
@@ -60,7 +144,13 @@ export function LeftSidebar(props: LeftSidebarProps) {
               type="button"
             >
               <span>{viewTitles[mode]}</span>
-              <strong>{mode === 'notifications' ? unreadCount : '>'}</strong>
+              {mode === 'notifications' ? (
+                unreadCount > 0 ? (
+                  <span className="nav-unread-badge">{Math.min(unreadCount, 99)}</span>
+                ) : null
+              ) : (
+                <strong>&gt;</strong>
+              )}
             </button>
           ))}
         </div>
@@ -167,10 +257,33 @@ export function LeftSidebar(props: LeftSidebarProps) {
         <div className="notification-list sidebar-notification-list">
           {notifications.length ? (
             notifications.slice(0, 4).map((item) => (
-              <div className={item.isRead ? 'notification-row read' : 'notification-row'} key={item.id}>
-                <strong>{item.type}</strong>
-                <p>{item.message}</p>
-              </div>
+              <button
+                className={item.isRead ? 'notification-row read' : 'notification-row'}
+                key={item.id}
+                onClick={() => onOpenNotification(item)}
+                type="button"
+              >
+                <div className="notification-row-content">
+                  <div className="notification-actor-avatar">
+                    {item.actor?.avatarUrl ? (
+                      <img alt={notificationActorLabel(item)} className="notification-actor-avatar-image" src={resolveMediaUrl(item.actor.avatarUrl)} />
+                    ) : (
+                      <span>{notificationActorInitial(item)}</span>
+                    )}
+                  </div>
+                  <div className="notification-copy">
+                    <div className="notification-preview-head">
+                      <strong>{notificationTypeLabel(item)}</strong>
+                      <span>{notificationActionLabel(item)}</span>
+                    </div>
+                    <div className="notification-actor-meta">
+                      <strong>{notificationActorLabel(item)}</strong>
+                      <span>{notificationActorHandle(item)} · {formatNotificationTime(item.createdAt)}</span>
+                    </div>
+                    <p>{formatNotificationMessage(item)}</p>
+                  </div>
+                </div>
+              </button>
             ))
           ) : (
             <p className="sidebar-empty">No notifications yet.</p>

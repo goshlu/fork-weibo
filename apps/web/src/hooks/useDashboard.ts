@@ -56,10 +56,18 @@ type DashboardState = {
   likedPostIds: Record<string, boolean>;
   message: string;
   notifications: Notification[];
+  notificationPage: number;
+  notificationHasMore: boolean;
+  loadingMore: boolean;
+  postDetail: Post | null;
+  postDetailHighlightCommentId: string;
   posts: Post[];
   profile: UserProfile | null;
   profileForm: ProfileFormState;
   profilePosts: Post[];
+  viewedProfile: UserProfile | null;
+  viewedUserId: string;
+  viewedUserPosts: Post[];
   searchInput: string;
   searchKeyword: string;
   searchResults: Post[];
@@ -73,6 +81,10 @@ type DashboardActions = {
   deleteDraft: (postId: string) => Promise<void>;
   logout: () => void;
   markNotificationsRead: () => Promise<void>;
+  markOneNotificationRead: (id: string) => Promise<void>;
+  openNotification: (notification: Notification) => Promise<void>;
+  openPostDetail: (postId: string, highlightedCommentId?: string) => Promise<void>;
+  openUserProfile: (userId: string) => Promise<void>;
   publishDraft: (postId: string) => Promise<void>;
   saveDraft: (postId: string) => Promise<void>;
   saveProfile: () => Promise<void>;
@@ -89,13 +101,14 @@ type DashboardActions = {
   setSearchKeyword: Dispatch<SetStateAction<string>>;
   setViewMode: Dispatch<SetStateAction<ViewMode>>;
   submitAuth: () => Promise<void>;
-  submitComment: (postId: string) => Promise<void>;
+  submitComment: (postId: string, parentId?: string) => Promise<void>;
   submitComposer: () => Promise<void>;
   toggleComments: (postId: string) => Promise<void>;
   toggleFavorite: (postId: string) => Promise<void>;
   toggleFollow: (authorId: string) => Promise<void>;
   toggleLike: (postId: string) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
+  loadMoreNotifications: () => Promise<void>;
 };
 
 export type DashboardReturn = {
@@ -126,6 +139,17 @@ function buildFavoriteMap(items: FavoriteItem[], folderName: string): Record<str
   );
 }
 
+function buildViewerMaps(posts: Post[]): { liked: Record<string, boolean>; following: Record<string, boolean> } {
+  return posts.reduce(
+    (acc, post) => {
+      if (post.viewer?.hasLiked !== undefined) acc.liked[post.id] = post.viewer.hasLiked;
+      if (post.viewer?.isFollowingAuthor !== undefined) acc.following[post.authorId] = post.viewer.isFollowingAuthor;
+      return acc;
+    },
+    { liked: {} as Record<string, boolean>, following: {} as Record<string, boolean> },
+  );
+}
+
 export function useDashboard(): DashboardReturn {
   const [token, setToken] = useState(() => (typeof window === 'undefined' ? '' : window.localStorage.getItem(TOKEN_KEY) ?? ''));
   const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser());
@@ -134,12 +158,20 @@ export function useDashboard(): DashboardReturn {
   const [avatarPreview, setAvatarPreview] = useState('');
   const [posts, setPosts] = useState<Post[]>([]);
   const [profilePosts, setProfilePosts] = useState<Post[]>([]);
+  const [viewedProfile, setViewedProfile] = useState<UserProfile | null>(null);
+  const [viewedUserId, setViewedUserId] = useState('');
+  const [viewedUserPosts, setViewedUserPosts] = useState<Post[]>([]);
   const [drafts, setDrafts] = useState<Post[]>([]);
   const [draftEdits, setDraftEdits] = useState<Record<string, string>>({});
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [favoriteFolderName, setFavoriteFolderName] = useState(DEFAULT_FAVORITE_FOLDER);
   const [favoritePostIds, setFavoritePostIds] = useState<Record<string, boolean>>({});
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [notificationHasMore, setNotificationHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [postDetail, setPostDetail] = useState<Post | null>(null);
+  const [postDetailHighlightCommentId, setPostDetailHighlightCommentId] = useState('');
   const [topics, setTopics] = useState<Topic[]>([]);
   const [searchTrends, setSearchTrends] = useState<SearchTrend[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -157,7 +189,7 @@ export function useDashboard(): DashboardReturn {
   const [busy, setBusy] = useState<BusyState>('');
   const [message, setMessage] = useState('');
   const [authForm, setAuthForm] = useState<AuthFormState>({ username: '', password: '', nickname: '' });
-  const [composer, setComposer] = useState<ComposerState>({ content: '', status: 'published' });
+  const [composer, setComposer] = useState<ComposerState>({ content: '', status: 'published', images: [] });
 
   useEffect(() => {
     void loadDiscovery();
@@ -192,10 +224,15 @@ export function useDashboard(): DashboardReturn {
     if (!token) {
       setProfile(null);
       setProfilePosts([]);
+      setViewedProfile(null);
+      setViewedUserId('');
+      setViewedUserPosts([]);
       setDrafts([]);
       setFavorites([]);
       setFavoritePostIds({});
       setNotifications([]);
+      setPostDetail(null);
+      setPostDetailHighlightCommentId('');
       setProfileForm({ nickname: '', bio: '', password: '' });
       setAvatarPreview('');
       return;
@@ -223,6 +260,11 @@ export function useDashboard(): DashboardReturn {
     try {
       const data = await api.getFeed(mode, activeToken);
       setPosts(data.items);
+      if (activeToken) {
+        const viewerMaps = buildViewerMaps(data.items);
+        setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
+        setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Feed load failed.');
     }
@@ -252,6 +294,13 @@ export function useDashboard(): DashboardReturn {
       setAvatarPreview(profileData.profile.avatarUrl ? `${apiBase(profileData.profile.avatarUrl)}` : '');
       setProfilePosts(profilePostsData.items);
       setDrafts(draftsData.items);
+      const viewerMaps = buildViewerMaps([
+        ...profilePostsData.items,
+        ...draftsData.items,
+        ...favoritesData.items.map((item) => item.post),
+      ]);
+      setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
+      setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
       setDraftEdits(Object.fromEntries(draftsData.items.map((item) => [item.id, item.content])));
       setNotifications(notificationsData.notifications);
       setFavorites(favoritesData.items);
@@ -270,11 +319,16 @@ export function useDashboard(): DashboardReturn {
     setCurrentUser(null);
     setProfile(null);
     setProfilePosts([]);
+    setViewedProfile(null);
+    setViewedUserId('');
+    setViewedUserPosts([]);
     setDrafts([]);
     setDraftEdits({});
     setFavorites([]);
     setFavoritePostIds({});
     setNotifications([]);
+    setPostDetail(null);
+    setPostDetailHighlightCommentId('');
     setLikedPostIds({});
     setFollowingAuthorIds({});
     if (typeof window !== 'undefined') {
@@ -321,8 +375,8 @@ export function useDashboard(): DashboardReturn {
     setBusy('composer');
     setMessage('');
     try {
-      await api.createPost({ content: composer.content.trim(), status: composer.status }, token);
-      setComposer({ content: '', status: 'published' });
+      await api.createPost({ content: composer.content.trim(), status: composer.status, images: composer.images }, token);
+      setComposer({ content: '', status: 'published', images: [] });
       setMessage(composer.status === 'draft' ? 'Draft saved.' : 'Post published.');
       await Promise.all([loadFeed(feedMode, token), refreshAuthedData(token), loadDiscovery()]);
       setViewMode(composer.status === 'draft' ? 'drafts' : 'feed');
@@ -470,7 +524,7 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
-  async function submitComment(postId: string) {
+  async function submitComment(postId: string, parentId?: string) {
     if (!token) {
       setMessage('Log in before commenting.');
       return;
@@ -484,7 +538,7 @@ export function useDashboard(): DashboardReturn {
 
     setBusy(`comment:${postId}`);
     try {
-      const data = await api.createComment(postId, content, token);
+      const data = await api.createComment(postId, content, token, parentId);
       setCommentsByPost((prev) => ({ ...prev, [postId]: [...(prev[postId] ?? []), data.comment] }));
       setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
       await refreshAuthedData(token);
@@ -562,6 +616,73 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
+  async function openPostDetail(postId: string, highlightedCommentId = '') {
+    try {
+      const [postData, commentsData] = await Promise.all([
+        api.getPost(postId, token || undefined),
+        api.getComments(postId),
+      ]);
+
+      setPostDetail(postData.post);
+      setCommentsByPost((prev) => ({ ...prev, [postId]: commentsData.comments }));
+      setExpandedComments((prev) => ({ ...prev, [postId]: true }));
+      setPostDetailHighlightCommentId(highlightedCommentId);
+      const viewerMaps = buildViewerMaps([postData.post]);
+      setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
+      setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
+      setViewMode('post');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to open post detail.');
+    }
+  }
+  async function openUserProfile(userId: string) {
+    if (userId === currentUser?.id) {
+      setViewMode('profile');
+      return;
+    }
+
+    try {
+      const [profileData, postsData] = await Promise.all([
+        api.getProfile(userId),
+        api.getPosts({ authorId: userId, status: 'published', pageSize: 20 }, token || undefined),
+      ]);
+
+      setViewedUserId(userId);
+      setViewedProfile(profileData.profile);
+      setViewedUserPosts(postsData.items);
+      const viewerMaps = buildViewerMaps(postsData.items);
+      setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
+      setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
+      setViewMode('user');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to open user profile.');
+    }
+  }
+  async function openNotification(notification: Notification) {
+    try {
+      setNotifications((prev) => prev.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item)));
+      if (notification.entityType === 'user') {
+        await openUserProfile(notification.entityId);
+        return;
+      }
+
+      if (notification.entityType === 'post') {
+        await openPostDetail(notification.entityId);
+        return;
+      }
+
+      if (notification.entityType === 'comment') {
+        const data = await api.getComment(notification.entityId);
+        await openPostDetail(data.comment.postId, data.comment.id);
+        return;
+      }
+
+      await openUserProfile(notification.actorId);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to open notification target.');
+    }
+  }
+
   async function markNotificationsRead() {
     if (!token) {
       setMessage('Log in before managing notifications.');
@@ -576,6 +697,42 @@ export function useDashboard(): DashboardReturn {
       setMessage(error instanceof Error ? error.message : 'Failed to mark notifications as read.');
     } finally {
       setBusy('');
+    }
+  }
+
+  async function markOneNotificationRead(id: string) {
+    if (!token) {
+      setMessage('Log in before managing notifications.');
+      return;
+    }
+
+    try {
+      await api.markNotificationRead(id, token);
+      setNotifications((prev) => prev.map((item) => item.id === id ? { ...item, isRead: true } : item));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to mark notification as read.');
+    }
+  }
+
+  async function loadMoreNotifications() {
+    if (!token || loadingMore || !notificationHasMore) {
+      return;
+    }
+
+    setLoadingMore(true);
+    try {
+      const nextPage = notificationPage + 1;
+      // 当前 API 不支持分页，这里模拟加载更多的逻辑
+      // 实际项目中需要后端支持分页参数
+      setNotificationPage(nextPage);
+      // 假设每页 20 条，当通知总数少于 page * 20 时表示无更多数据
+      if (notifications.length < nextPage * 20) {
+        setNotificationHasMore(false);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to load more notifications.');
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -601,10 +758,18 @@ export function useDashboard(): DashboardReturn {
       likedPostIds,
       message,
       notifications,
+      notificationPage,
+      notificationHasMore,
+      loadingMore,
+      postDetail,
+      postDetailHighlightCommentId,
       posts,
       profile,
       profileForm,
       profilePosts,
+      viewedProfile,
+      viewedUserId,
+      viewedUserPosts,
       searchInput,
       searchKeyword,
       searchResults,
@@ -617,6 +782,10 @@ export function useDashboard(): DashboardReturn {
       deleteDraft,
       logout,
       markNotificationsRead,
+      markOneNotificationRead,
+      openNotification,
+      openPostDetail,
+      openUserProfile,
       publishDraft,
       saveDraft,
       saveProfile,
@@ -640,6 +809,12 @@ export function useDashboard(): DashboardReturn {
       toggleFollow,
       toggleLike,
       uploadAvatar,
+      loadMoreNotifications,
     },
   };
 }
+
+
+
+
+

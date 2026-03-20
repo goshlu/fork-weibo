@@ -36,13 +36,30 @@ export const api = {
     return request<{ token: string; user: User }>('/auth/register', { method: 'POST', body: JSON.stringify(payload) });
   },
   createPost(payload: ComposerState, token: string) {
-    return request<{ post: Post }>('/posts', { method: 'POST', body: JSON.stringify(payload) }, token);
+    if (payload.images.length) {
+      const formData = new FormData();
+      formData.append('content', payload.content);
+      formData.append('status', payload.status);
+      for (const image of payload.images) {
+        formData.append('images', image);
+      }
+      return request<{ post: Post }>('/posts', { method: 'POST', body: formData }, token);
+    }
+
+    return request<{ post: Post }>(
+      '/posts',
+      { method: 'POST', body: JSON.stringify({ content: payload.content, status: payload.status }) },
+      token,
+    );
   },
-  updatePost(postId: string, payload: Partial<ComposerState> & { content?: string }, token: string) {
+  updatePost(postId: string, payload: Partial<Omit<ComposerState, 'images'>> & { content?: string }, token: string) {
     return request<{ post: Post }>(`/posts/${postId}`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
   },
   deletePost(postId: string, token: string) {
     return request<void>(`/posts/${postId}`, { method: 'DELETE' }, token);
+  },
+  getPost(postId: string, token?: string) {
+    return request<{ post: Post }>(`/posts/${postId}`, {}, token);
   },
   getFeed(mode: FeedMode, token?: string) {
     const path = mode === 'hot' ? '/feed/hot?page=1&pageSize=10' : mode === 'following' ? '/feed/following?page=1&pageSize=10' : '/feed/recommended?page=1&pageSize=10';
@@ -99,8 +116,11 @@ export const api = {
   getComments(postId: string) {
     return request<{ comments: Comment[] }>(`/posts/${postId}/comments`);
   },
-  createComment(postId: string, content: string, token: string) {
-    return request<{ comment: Comment }>(`/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ content }) }, token);
+  createComment(postId: string, content: string, token: string, parentId?: string) {
+    return request<{ comment: Comment }>(`/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ content, parentId }) }, token);
+  },
+  getComment(commentId: string) {
+    return request<{ comment: Comment }>(`/comments/${commentId}`);
   },
   getNotifications(token: string) {
     return request<{ notifications: Notification[] }>('/notifications', {}, token);
@@ -108,4 +128,9 @@ export const api = {
   markNotificationsRead(token: string) {
     return request('/notifications/read', { method: 'POST' }, token);
   },
+  markNotificationRead(notificationId: string, token: string) {
+    return request(`/notifications/${notificationId}/read`, { method: 'POST' }, token);
+  },
 };
+
+

@@ -1,8 +1,150 @@
+﻿import { useState, useEffect, useRef } from 'react';
 import type { Notification } from '../../types/app';
+import { FilterTabs } from '../ui/FilterTabs';
 
-type NotificationsPageProps = { notifications: Notification[]; onMarkAllRead: () => void };
+function resolveMediaUrl(path: string): string {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'}`.replace(/\/api$/, '') + path;
+}
 
-export function NotificationsPage({ notifications, onMarkAllRead }: NotificationsPageProps) {
+function formatNotificationTime(createdAt: string): string {
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return createdAt;
+
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diffMs < minute) return 'just now';
+  if (diffMs < hour) return `${Math.max(1, Math.floor(diffMs / minute))}m ago`;
+  if (diffMs < day) return `${Math.max(1, Math.floor(diffMs / hour))}h ago`;
+
+  const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate()).getTime();
+  const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dayDiff = Math.round((todayDay - createdDay) / day);
+  const timeText = created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  if (dayDiff === 1) return `昨天 ${timeText}`;
+  if (dayDiff < 7) return `${dayDiff}d ago`;
+
+  return created.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function notificationTypeLabel(notification: Notification): string {
+  if (notification.type === 'like') return 'Likes';
+  if (notification.type === 'favorite') return 'Saves';
+  if (notification.type === 'comment') return 'Replies';
+  return 'Follows';
+}
+
+function notificationActorLabel(notification: Notification): string {
+  const nickname = notification.actor?.nickname?.trim();
+  if (nickname) return nickname;
+  const username = notification.actor?.username?.trim();
+  if (username) return `@${username}`;
+  return 'Someone';
+}
+
+function notificationActorHandle(notification: Notification): string {
+  const username = notification.actor?.username?.trim();
+  if (username) return `@${username}`;
+  return `ID ${notification.actorId.slice(0, 8)}`;
+}
+
+function notificationActorInitial(notification: Notification): string {
+  return notificationActorLabel(notification).trim().charAt(0).toUpperCase() || 'S';
+}
+
+function formatNotificationMessage(notification: Notification): string {
+  const actor = notificationActorLabel(notification);
+  const message = notification.message.trim();
+  if (!message) return 'You have a new notification.';
+  if (message === 'liked your post' || message === 'Someone liked your post.') return `${actor} liked your post.`;
+  if (message === 'replied to your comment' || message === 'Someone replied to your comment.') return `${actor} replied to your comment.`;
+  if (message === 'commented on your post' || message === 'Someone commented on your post.') return `${actor} commented on your post.`;
+  if (message === 'started following you' || message === 'Someone started following you.') return `${actor} started following you.`;
+  if (message.startsWith('favorited your post into ')) {
+    const folderName = message.replace('favorited your post into ', '').trim();
+    return `${actor} saved your post to "${folderName}".`;
+  }
+  if (/^Someone saved your post to ".+"\.$/.test(message)) {
+    return message.replace(/^Someone/, actor);
+  }
+  if (/^Someone [^.]+\.$/.test(message)) {
+    return message.replace(/^Someone/, actor);
+  }
+  return `${message.charAt(0).toUpperCase()}${message.slice(1)}.`;
+}
+
+type NotificationGroup = { label: string; items: Notification[] };
+
+function groupNotificationsByDate(notifications: Notification[]): NotificationGroup[] {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+
+  const groups: Record<string, Notification[]> = { '今天': [], '昨天': [], '更早': [] };
+  for (const n of notifications) {
+    const t = new Date(n.createdAt).getTime();
+    if (t >= todayStart) groups['今天'].push(n);
+    else if (t >= yesterdayStart) groups['昨天'].push(n);
+    else groups['更早'].push(n);
+  }
+
+  return (['今天', '昨天', '更早'] as const)
+    .filter((label) => groups[label].length > 0)
+    .map((label) => ({ label, items: groups[label] }));
+}
+
+type FilterType = 'all' | 'like' | 'comment' | 'follow' | 'favorite';
+
+type NotificationsPageProps = {
+  notifications: Notification[];
+  onMarkAllRead: () => void;
+  onMarkOneRead: (id: string) => void;
+  onOpenNotification: (notification: Notification) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+};
+
+export function NotificationsPage({
+  notifications,
+  onMarkAllRead,
+  onMarkOneRead,
+  onOpenNotification,
+  onLoadMore,
+  hasMore = false,
+  loadingMore = false
+}: NotificationsPageProps) {
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sentinelRef.current || !onLoadMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          onLoadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    observer.observe(sentinelRef.current);
+
+    return () => observer.disconnect();
+  }, [onLoadMore, hasMore, loadingMore]);
+
+  const filteredNotifications = activeFilter === 'all'
+    ? notifications
+    : notifications.filter((n) => n.type === activeFilter);
+
+  const groups = groupNotificationsByDate(filteredNotifications);
+
   return (
     <>
       <div className="toolbar simple-toolbar page-toolbar">
@@ -14,21 +156,86 @@ export function NotificationsPage({ notifications, onMarkAllRead }: Notification
           Mark all read
         </button>
       </div>
+
+      <FilterTabs
+        activeFilter={activeFilter}
+        onChange={setActiveFilter}
+        notifications={notifications}
+      />
+
       <div className="notification-page-list">
         {notifications.length ? (
-          notifications.map((item) => (
-            <article className={item.isRead ? 'notification-page-card read' : 'notification-page-card'} key={item.id}>
-              <div className="post-meta">
-                <span>{item.type}</span>
-                <span>{new Date(item.createdAt).toLocaleString()}</span>
-              </div>
-              <p>{item.message}</p>
-            </article>
+          groups.map((group) => (
+            <div className="notification-group" key={group.label}>
+              <p className="notification-group-label">{group.label}</p>
+              {group.items.map((item) => (
+                <div
+                  className="notification-page-card-wrapper"
+                  key={item.id}
+                >
+                  <button
+                    className={item.isRead ? 'notification-page-card read' : 'notification-page-card'}
+                    onClick={() => onOpenNotification(item)}
+                    type="button"
+                  >
+                    {!item.isRead && (
+                      <button
+                        className="notification-mark-read-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onMarkOneRead(item.id);
+                        }}
+                        title="Mark as read"
+                        type="button"
+                      >
+                        ✓
+                      </button>
+                    )}
+                    <div className="notification-card-head">
+                      <div className="notification-actor-avatar-wrap">
+                        <div className="notification-actor-avatar notification-actor-avatar-large">
+                          {item.actor?.avatarUrl ? (
+                            <img alt={notificationActorLabel(item)} className="notification-actor-avatar-image" src={resolveMediaUrl(item.actor.avatarUrl)} />
+                          ) : (
+                            <span>{notificationActorInitial(item)}</span>
+                          )}
+                        </div>
+                        {!item.isRead && <span aria-label="未读" className="notification-unread-dot" />}
+                      </div>
+                      <div className="notification-copy">
+                        <div className="post-meta notification-meta-row">
+                          <span>{notificationTypeLabel(item)}</span>
+                          <span>{formatNotificationTime(item.createdAt)}</span>
+                        </div>
+                        <div className="notification-actor-meta">
+                          <strong>{notificationActorLabel(item)}</strong>
+                          <span>{notificationActorHandle(item)}</span>
+                        </div>
+                        <p>{formatNotificationMessage(item)}</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              ))}
+            </div>
           ))
         ) : (
           <div className="empty-state empty-state-large">
             <strong>Inbox cleared.</strong>
             <p>New likes, follows, comments, and favorites will appear here.</p>
+          </div>
+        )}
+
+        {/* Infinite scroll sentinel */}
+        {hasMore && <div ref={sentinelRef} style={{ height: '40px' }} />}
+        {loadingMore && (
+          <div className="empty-state" style={{ marginTop: '12px' }}>
+            Loading more...
+          </div>
+        )}
+        {!hasMore && notifications.length > 0 && (
+          <div className="empty-state" style={{ marginTop: '12px' }}>
+            No more notifications
           </div>
         )}
       </div>
