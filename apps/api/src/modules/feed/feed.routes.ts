@@ -1,8 +1,12 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { toErrorResponse } from '../../utils/http.js';
 import { feedQuerySchema } from './feed.schemas.js';
 import type { FeedService } from './feed.service.js';
+
+function getRequesterId(request: FastifyRequest): string | undefined {
+  return request.user?.userId;
+}
 
 export async function registerFeedRoutes(
   app: FastifyInstance,
@@ -19,10 +23,10 @@ export async function registerFeedRoutes(
     }
   });
 
-  app.get('/api/feed/hot', async (request, reply) => {
+  app.get('/api/feed/hot', { preHandler: [app.authenticateOptional] }, async (request, reply) => {
     try {
       const query = feedQuerySchema.parse(request.query);
-      const result = await feedService.getHotFeed(query);
+      const result = await feedService.getHotFeed(query, getRequesterId(request));
       return result;
     } catch (error) {
       const mapped = toErrorResponse(error);

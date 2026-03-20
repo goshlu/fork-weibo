@@ -3,15 +3,29 @@ import { randomUUID } from 'node:crypto';
 import type { z } from 'zod';
 
 import type { MemoryCache } from '../../lib/cache.js';
+import type { InteractionStore } from '../interactions/interaction.types.js';
+import type { InteractionRepository } from '../interactions/interaction.repository.js';
+import type { UserRepository } from '../users/user.repository.js';
+import type { UserRecord } from '../users/user.types.js';
 import type { createPostSchema, listPostsQuerySchema, updatePostSchema } from './post.schemas.js';
 import type { PostRepository } from './post.repository.js';
-import type { PostImage, PostListItem, PostRecord } from './post.types.js';
+import type {
+  PostAuthorSummary,
+  PostImage,
+  PostListItem,
+  PostRecord,
+  PostStats,
+  PostView,
+  PostViewerState,
+} from './post.types.js';
 
 const bannedWords = ['spam', '诈骗', '违禁'];
 
 export class PostService {
   constructor(
     private readonly repository: PostRepository,
+    private readonly userRepository: UserRepository,
+    private readonly interactionRepository: InteractionRepository,
     private readonly cache?: MemoryCache,
   ) {}
 
@@ -49,7 +63,13 @@ export class PostService {
     pageSize: number;
     total: number;
   }> {
-    const posts = await this.repository.list();
+    const [posts, users, interactions] = await Promise.all([
+      this.repository.list(),
+      this.userRepository.list(),
+      this.interactionRepository.read(),
+    ]);
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
     const filtered = posts.filter((post) => {
       if (query.authorId && post.authorId !== query.authorId) {
         return false;
@@ -72,7 +92,7 @@ export class PostService {
     });
 
     const start = (query.page - 1) * query.pageSize;
-    const items = sorted.slice(start, start + query.pageSize).map((post) => this.toListItem(post));
+    const items = sorted.slice(start, start + query.pageSize).map((post) => this.toListItem(post, userMap, interactions, requesterId));
 
     return {
       items,
@@ -82,8 +102,12 @@ export class PostService {
     };
   }
 
-  async getPostById(id: string, requesterId?: string): Promise<PostRecord | undefined> {
-    const post = await this.repository.findById(id);
+  async getPostById(id: string, requesterId?: string): Promise<PostView | undefined> {
+    const [post, users, interactions] = await Promise.all([
+      this.repository.findById(id),
+      this.userRepository.list(),
+      this.interactionRepository.read(),
+    ]);
     if (!post) {
       return undefined;
     }
@@ -92,7 +116,8 @@ export class PostService {
       throw new Error('FORBIDDEN');
     }
 
-    return post;
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    return this.toPostView(post, userMap, interactions, requesterId);
   }
 
   async updatePost(
@@ -154,10 +179,57 @@ export class PostService {
     }
   }
 
-  private toListItem(post: PostRecord): PostListItem {
+  private toListItem(
+    post: PostRecord,
+    userMap: Map<string, UserRecord>,
+    interactions: InteractionStore,
+    requesterId?: string,
+  ): PostListItem {
+    return {
+      ...this.toPostView(post, userMap, interactions, requesterId),
+      excerpt: post.content.slice(0, 120),
+    };
+  }
+
+  private toPostView(
+    post: PostRecord,
+    userMap: Map<string, UserRecord>,
+    interactions: InteractionStore,
+    requesterId?: string,
+  ): PostView {
     return {
       ...post,
-      excerpt: post.content.slice(0, 120),
+      author: this.toAuthorSummary(userMap.get(post.authorId)),
+      stats: this.toPostStats(post.id, interactions),
+      viewer: requesterId ? this.toViewerState(post, interactions, requesterId) : undefined,
+    };
+  }
+
+  private toAuthorSummary(user?: UserRecord): PostAuthorSummary | null {
+    if (!user) return null;
+    return {
+      id: user.id,
+      username: user.username,
+      nickname: user.nickname,
+      avatarUrl: user.avatarUrl,
+    };
+  }
+
+  private toPostStats(postId: string, interactions: InteractionStore): PostStats {
+    return {
+      likesCount: interactions.likes.filter((item) => item.postId === postId).length,
+      commentsCount: interactions.comments.filter((item) => item.postId === postId).length,
+      favoritesCount: interactions.favorites.filter((item) => item.postId === postId).length,
+    };
+  }
+
+  private toViewerState(post: PostRecord, interactions: InteractionStore, requesterId: string): PostViewerState {
+    return {
+      hasLiked: interactions.likes.some((item) => item.postId === post.id && item.userId === requesterId),
+      hasFavorited: interactions.favorites.some((item) => item.postId === post.id && item.userId === requesterId),
+      isFollowingAuthor: post.authorId !== requesterId && interactions.follows.some(
+        (item) => item.followerId === requesterId && item.followeeId === post.authorId,
+      ),
     };
   }
 

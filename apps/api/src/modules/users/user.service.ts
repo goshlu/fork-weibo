@@ -3,12 +3,18 @@ import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import type { z } from 'zod';
 
+import type { InteractionRepository } from '../interactions/interaction.repository.js';
+import type { PostRepository } from '../posts/post.repository.js';
 import type { UserRepository } from './user.repository.js';
 import type { PublicUser, UserProfile, UserRecord } from './user.types.js';
 import { type loginSchema, type registerSchema, type updateUserSchema } from './user.schemas.js';
 
 export class UserService {
-  constructor(private readonly repository: UserRepository) {}
+  constructor(
+    private readonly repository: UserRepository,
+    private readonly postRepository: PostRepository,
+    private readonly interactionRepository: InteractionRepository,
+  ) {}
 
   async register(input: z.infer<typeof registerSchema>): Promise<PublicUser> {
     const existed = await this.repository.findByUsername(input.username);
@@ -82,13 +88,21 @@ export class UserService {
       return undefined;
     }
 
+    const [posts, interactions] = await Promise.all([
+      this.postRepository.list(),
+      this.interactionRepository.read(),
+    ]);
+
+    const publishedPosts = posts.filter((post) => post.authorId === id && post.status === 'published');
+    const publishedPostIds = new Set(publishedPosts.map((post) => post.id));
+
     return {
       ...this.toPublicUser(user),
       stats: {
-        followers: 0,
-        following: 0,
-        posts: 0,
-        likesReceived: 0,
+        followers: interactions.follows.filter((follow) => follow.followeeId === id).length,
+        following: interactions.follows.filter((follow) => follow.followerId === id).length,
+        posts: publishedPosts.length,
+        likesReceived: interactions.likes.filter((like) => publishedPostIds.has(like.postId)).length,
       },
     };
   }

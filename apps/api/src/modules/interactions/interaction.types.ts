@@ -1,3 +1,5 @@
+﻿import type { PostAuthorSummary } from '../posts/post.types.js';
+
 export interface LikeRecord {
   userId: string;
   postId: string;
@@ -21,6 +23,10 @@ export interface CommentRecord {
   updatedAt: string;
 }
 
+export interface CommentView extends CommentRecord {
+  author: PostAuthorSummary | null;
+}
+
 export interface FollowRecord {
   followerId: string;
   followeeId: string;
@@ -39,6 +45,10 @@ export interface NotificationRecord {
   createdAt: string;
 }
 
+export interface NotificationView extends NotificationRecord {
+  actor: PostAuthorSummary | null;
+}
+
 export interface InteractionStore {
   likes: LikeRecord[];
   favorites: FavoriteRecord[];
@@ -52,3 +62,4 @@ export interface FavoriteListItem {
   folderName: string;
   createdAt: string;
 }
+

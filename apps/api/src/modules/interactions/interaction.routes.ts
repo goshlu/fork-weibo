@@ -111,6 +111,19 @@ export async function registerInteractionRoutes(
     }
   });
 
+  app.get('/api/comments/:id', async (request, reply) => {
+    try {
+      const params = request.params as { id: string };
+      const comment = await interactionService.getCommentById(params.id);
+      if (!comment) {
+        return reply.code(404).send({ message: 'Comment not found' });
+      }
+      return { comment };
+    } catch (error) {
+      const mapped = toErrorResponse(error);
+      return reply.code(mapped.statusCode).send({ message: mapped.message });
+    }
+  });
   app.post('/api/users/:id/follow', { preHandler: [app.authenticate] }, async (request, reply) => {
     try {
       const params = request.params as { id: string };
@@ -160,4 +173,20 @@ export async function registerInteractionRoutes(
       }
     },
   );
+
+  app.post(
+    '/api/notifications/:id/read',
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      try {
+        const params = request.params as { id: string };
+        const result = await interactionService.markNotificationRead(request.user.userId, params.id);
+        return result;
+      } catch (error) {
+        const mapped = toErrorResponse(error);
+        return reply.code(mapped.statusCode).send({ message: mapped.message });
+      }
+    },
+  );
 }
+

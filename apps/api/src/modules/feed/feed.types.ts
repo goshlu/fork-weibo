@@ -1,6 +1,6 @@
-import type { PostRecord } from '../posts/post.types.js';
+import type { PostView } from '../posts/post.types.js';
 
-export interface FeedItem extends PostRecord {
+export interface FeedItem extends PostView {
   score: number;
   reason: string;
 }

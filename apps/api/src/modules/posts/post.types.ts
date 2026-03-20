@@ -1,3 +1,5 @@
+import type { PublicUser } from '../users/user.types.js';
+
 export interface PostImage {
   url: string;
   width: number;
@@ -15,6 +17,27 @@ export interface PostRecord {
   publishedAt: string | null;
 }
 
-export interface PostListItem extends PostRecord {
+export interface PostAuthorSummary extends Pick<PublicUser, 'id' | 'username' | 'nickname' | 'avatarUrl'> {}
+
+export interface PostStats {
+  likesCount: number;
+  commentsCount: number;
+  favoritesCount: number;
+}
+
+export interface PostViewerState {
+  hasLiked: boolean;
+  hasFavorited: boolean;
+  isFollowingAuthor: boolean;
+}
+
+export interface PostView extends PostRecord {
+  author: PostAuthorSummary | null;
+  stats: PostStats;
+  viewer?: PostViewerState;
+  reason?: string;
+}
+
+export interface PostListItem extends PostView {
   excerpt: string;
 }

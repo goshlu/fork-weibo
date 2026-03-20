@@ -3,7 +3,14 @@ import type { MemoryCache } from '../../lib/cache.js';
 import type { InteractionRepository } from '../interactions/interaction.repository.js';
 import type { InteractionStore } from '../interactions/interaction.types.js';
 import type { PostRepository } from '../posts/post.repository.js';
-import type { PostRecord } from '../posts/post.types.js';
+import type {
+  PostAuthorSummary,
+  PostRecord,
+  PostStats,
+  PostViewerState,
+} from '../posts/post.types.js';
+import type { UserRepository } from '../users/user.repository.js';
+import type { UserRecord } from '../users/user.types.js';
 import type { FeedItem, FeedResult } from './feed.types.js';
 
 interface PaginationInput {
@@ -15,6 +22,7 @@ export class FeedService {
   constructor(
     private readonly postRepository: PostRepository,
     private readonly interactionRepository: InteractionRepository,
+    private readonly userRepository: UserRepository,
     private readonly cache?: MemoryCache,
   ) {}
 
@@ -25,10 +33,12 @@ export class FeedService {
       return cached;
     }
 
-    const [posts, interactions] = await Promise.all([
+    const [posts, interactions, users] = await Promise.all([
       this.postRepository.list(),
       this.interactionRepository.read(),
+      this.userRepository.list(),
     ]);
+    const userMap = new Map(users.map((user) => [user.id, user]));
 
     const followingIds = new Set(
       interactions.follows
@@ -43,32 +53,30 @@ export class FeedService {
           new Date(right.publishedAt ?? right.updatedAt).getTime() -
           new Date(left.publishedAt ?? left.updatedAt).getTime(),
       )
-      .map((post) => ({ ...post, score: this.recencyScore(post), reason: 'following' }));
+      .map((post) => this.toFeedItem(post, userMap, interactions, this.recencyScore(post), 'following', userId));
 
     const result = this.paginate(items, query);
     this.cache?.set(key, result, env.CACHE_TTL_MS);
     return result;
   }
 
-  async getHotFeed(query: PaginationInput): Promise<FeedResult> {
-    const key = `feed:hot:${query.page}:${query.pageSize}`;
+  async getHotFeed(query: PaginationInput, requesterId?: string): Promise<FeedResult> {
+    const key = `feed:hot:${requesterId ?? 'guest'}:${query.page}:${query.pageSize}`;
     const cached = this.cache?.get<FeedResult>(key);
     if (cached) {
       return cached;
     }
 
-    const [posts, interactions] = await Promise.all([
+    const [posts, interactions, users] = await Promise.all([
       this.postRepository.list(),
       this.interactionRepository.read(),
+      this.userRepository.list(),
     ]);
+    const userMap = new Map(users.map((user) => [user.id, user]));
 
     const items = posts
       .filter((post) => post.status === 'published')
-      .map((post) => ({
-        ...post,
-        score: this.computeHotScore(post, interactions),
-        reason: 'hot',
-      }))
+      .map((post) => this.toFeedItem(post, userMap, interactions, this.computeHotScore(post, interactions), 'hot', requesterId))
       .sort((left, right) => right.score - left.score);
 
     const result = this.paginate(items, query);
@@ -83,10 +91,12 @@ export class FeedService {
       return cached;
     }
 
-    const [posts, interactions] = await Promise.all([
+    const [posts, interactions, users] = await Promise.all([
       this.postRepository.list(),
       this.interactionRepository.read(),
+      this.userRepository.list(),
     ]);
+    const userMap = new Map(users.map((user) => [user.id, user]));
 
     const publishedPosts = posts.filter((post) => post.status === 'published');
     const seenPostIds = new Set(
@@ -116,13 +126,9 @@ export class FeedService {
         );
         const engagementScore = this.computeHotScore(post, interactions) * 0.35;
         const score = collaborativeScore + authorAffinity + engagementScore;
+        const reason = collaborativeScore > 0 ? 'similar-users' : authorAffinity > 0 ? 'network' : 'popular';
 
-        return {
-          ...post,
-          score,
-          reason:
-            collaborativeScore > 0 ? 'similar-users' : authorAffinity > 0 ? 'network' : 'popular',
-        };
+        return this.toFeedItem(post, userMap, interactions, score, reason, userId);
       })
       .sort((left, right) => right.score - left.score);
 
@@ -199,6 +205,52 @@ export class FeedService {
     const baseTime = new Date(post.publishedAt ?? post.updatedAt).getTime();
     const ageHours = Math.max(1, (Date.now() - baseTime) / (1000 * 60 * 60));
     return 48 / ageHours;
+  }
+
+  private toFeedItem(
+    post: PostRecord,
+    userMap: Map<string, UserRecord>,
+    interactions: InteractionStore,
+    score: number,
+    reason: string,
+    requesterId?: string,
+  ): FeedItem {
+    return {
+      ...post,
+      author: this.toAuthorSummary(userMap.get(post.authorId)),
+      stats: this.toPostStats(post.id, interactions),
+      viewer: requesterId ? this.toViewerState(post, interactions, requesterId) : undefined,
+      score,
+      reason,
+    };
+  }
+
+  private toAuthorSummary(user?: UserRecord): PostAuthorSummary | null {
+    if (!user) return null;
+    return {
+      id: user.id,
+      username: user.username,
+      nickname: user.nickname,
+      avatarUrl: user.avatarUrl,
+    };
+  }
+
+  private toPostStats(postId: string, interactions: InteractionStore): PostStats {
+    return {
+      likesCount: interactions.likes.filter((item) => item.postId === postId).length,
+      commentsCount: interactions.comments.filter((item) => item.postId === postId).length,
+      favoritesCount: interactions.favorites.filter((item) => item.postId === postId).length,
+    };
+  }
+
+  private toViewerState(post: PostRecord, interactions: InteractionStore, requesterId: string): PostViewerState {
+    return {
+      hasLiked: interactions.likes.some((item) => item.postId === post.id && item.userId === requesterId),
+      hasFavorited: interactions.favorites.some((item) => item.postId === post.id && item.userId === requesterId),
+      isFollowingAuthor: post.authorId !== requesterId && interactions.follows.some(
+        (item) => item.followerId === requesterId && item.followeeId === post.authorId,
+      ),
+    };
   }
 
   private paginate(items: FeedItem[], query: PaginationInput): FeedResult {

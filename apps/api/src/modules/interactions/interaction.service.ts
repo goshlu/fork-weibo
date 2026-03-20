@@ -1,11 +1,20 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 
 import type { MemoryCache } from '../../lib/cache.js';
+import type { PostAuthorSummary, PostStats, PostView, PostViewerState } from '../posts/post.types.js';
 import type { PostRepository } from '../posts/post.repository.js';
 import type { PostRecord } from '../posts/post.types.js';
 import type { UserRepository } from '../users/user.repository.js';
+import type { UserRecord } from '../users/user.types.js';
 import type { InteractionRepository } from './interaction.repository.js';
-import type { CommentRecord, FavoriteListItem, NotificationRecord } from './interaction.types.js';
+import type {
+  CommentRecord,
+  CommentView,
+  FavoriteListItem,
+  InteractionStore,
+  NotificationRecord,
+  NotificationView,
+} from './interaction.types.js';
 
 export class InteractionService {
   constructor(
@@ -13,7 +22,7 @@ export class InteractionService {
     private readonly userRepository: UserRepository,
     private readonly postRepository: PostRepository,
     private readonly cache?: MemoryCache,
-  ) {}
+  ) { }
 
   async likePost(userId: string, postId: string): Promise<{ liked: boolean; likesCount: number }> {
     const post = await this.postRepository.findById(postId);
@@ -31,7 +40,7 @@ export class InteractionService {
           type: 'like',
           entityId: postId,
           entityType: 'post',
-          message: 'liked your post',
+          message: 'Someone liked your post.',
         });
       }
 
@@ -84,7 +93,7 @@ export class InteractionService {
           type: 'favorite',
           entityId: postId,
           entityType: 'post',
-          message: `favorited your post into ${folderName}`,
+          message: `Someone saved your post to "${folderName}".`,
         });
       }
 
@@ -117,9 +126,14 @@ export class InteractionService {
     return result;
   }
 
-  async listFavorites(userId: string): Promise<{ items: Array<FavoriteListItem & { post: PostRecord }>; total: number }> {
-    const [store, posts] = await Promise.all([this.repository.read(), this.postRepository.list()]);
+  async listFavorites(userId: string): Promise<{ items: Array<FavoriteListItem & { post: PostView }>; total: number }> {
+    const [store, posts, users] = await Promise.all([
+      this.repository.read(),
+      this.postRepository.list(),
+      this.userRepository.list(),
+    ]);
     const postById = new Map(posts.map((post) => [post.id, post]));
+    const userMap = new Map(users.map((user) => [user.id, user]));
 
     const items = store.favorites
       .filter((item) => item.userId === userId)
@@ -134,10 +148,10 @@ export class InteractionService {
           postId: item.postId,
           folderName: item.folderName,
           createdAt: item.createdAt,
-          post,
+          post: this.toPostView(post, userMap, store, userId),
         };
       })
-      .filter((item): item is FavoriteListItem & { post: PostRecord } => item !== null);
+      .filter((item): item is FavoriteListItem & { post: PostView } => item !== null);
 
     return {
       items,
@@ -150,60 +164,72 @@ export class InteractionService {
     postId: string,
     content: string,
     parentId?: string,
-  ): Promise<CommentRecord> {
+  ): Promise<CommentView> {
     const post = await this.postRepository.findById(postId);
     if (!post || post.status !== 'published') {
       throw new Error('POST_NOT_FOUND');
     }
 
-    const comment = await this.repository.update((data) => {
-      let replyTargetUserId = post.authorId;
-      if (parentId) {
-        const parent = data.comments.find((item) => item.id === parentId && item.postId === postId);
-        if (!parent) {
-          throw new Error('COMMENT_NOT_FOUND');
+    const [comment, author] = await Promise.all([
+      this.repository.update((data) => {
+        let replyTargetUserId = post.authorId;
+        if (parentId) {
+          const parent = data.comments.find((item) => item.id === parentId && item.postId === postId);
+          if (!parent) {
+            throw new Error('COMMENT_NOT_FOUND');
+          }
+          replyTargetUserId = parent.authorId;
         }
-        replyTargetUserId = parent.authorId;
-      }
 
-      const now = new Date().toISOString();
-      const createdComment: CommentRecord = {
-        id: randomUUID(),
-        postId,
-        authorId: userId,
-        parentId: parentId ?? null,
-        content,
-        createdAt: now,
-        updatedAt: now,
-      };
+        const now = new Date().toISOString();
+        const createdComment: CommentRecord = {
+          id: randomUUID(),
+          postId,
+          authorId: userId,
+          parentId: parentId ?? null,
+          content,
+          createdAt: now,
+          updatedAt: now,
+        };
 
-      data.comments.push(createdComment);
-      this.appendNotification(data.notifications, {
-        userId: replyTargetUserId,
-        actorId: userId,
-        type: 'comment',
-        entityId: createdComment.id,
-        entityType: 'comment',
-        message: parentId ? 'replied to your comment' : 'commented on your post',
-      });
+        data.comments.push(createdComment);
+        this.appendNotification(data.notifications, {
+          userId: replyTargetUserId,
+          actorId: userId,
+          type: 'comment',
+          entityId: createdComment.id,
+          entityType: 'comment',
+          message: parentId ? 'Someone replied to your comment.' : 'Someone commented on your post.',
+        });
 
-      return createdComment;
-    });
+        return createdComment;
+      }),
+      this.userRepository.findById(userId),
+    ]);
 
     this.invalidateInteractionCaches();
-    return comment;
+    return this.toCommentView(comment, author);
   }
 
-  async listComments(postId: string): Promise<CommentRecord[]> {
-    return this.repository.update((data) => {
-      return data.comments
-        .filter((item) => item.postId === postId)
-        .sort(
-          (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
-        );
-    });
+  async listComments(postId: string): Promise<CommentView[]> {
+    const [store, users] = await Promise.all([this.repository.read(), this.userRepository.list()]);
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    return store.comments
+      .filter((item) => item.postId === postId)
+      .sort(
+        (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+      )
+      .map((comment) => this.toCommentView(comment, userMap.get(comment.authorId)));
   }
 
+  async getCommentById(commentId: string): Promise<CommentView | null> {
+    const [store, users] = await Promise.all([this.repository.read(), this.userRepository.list()]);
+    const comment = store.comments.find((item) => item.id === commentId);
+    if (!comment) return null;
+    const author = users.find((user) => user.id === comment.authorId);
+    return this.toCommentView(comment, author);
+  }
   async followUser(
     followerId: string,
     followeeId: string,
@@ -230,7 +256,7 @@ export class InteractionService {
           type: 'follow',
           entityId: followeeId,
           entityType: 'user',
-          message: 'started following you',
+          message: 'Someone started following you.',
         });
       }
 
@@ -262,14 +288,23 @@ export class InteractionService {
     return result;
   }
 
-  async listNotifications(userId: string): Promise<NotificationRecord[]> {
-    return this.repository.update((data) => {
-      return data.notifications
-        .filter((item) => item.userId === userId)
-        .sort(
-          (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
-        );
-    });
+  async listNotifications(userId: string): Promise<NotificationView[]> {
+    const [store, users] = await Promise.all([this.repository.read(), this.userRepository.list()]);
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    return store.notifications
+      .filter((item) => item.userId === userId)
+      .sort(
+        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      )
+      .map((item) => {
+        const actor = this.toAuthorSummary(userMap.get(item.actorId));
+        return {
+          ...item,
+          actor,
+          message: this.toNotificationMessage(item, actor),
+        };
+      });
   }
 
   async markNotificationsRead(userId: string): Promise<{ updated: number }> {
@@ -286,6 +321,106 @@ export class InteractionService {
     });
   }
 
+  async markNotificationRead(userId: string, notificationId: string): Promise<{ updated: number }> {
+    return this.repository.update((data) => {
+      let updated = 0;
+      data.notifications = data.notifications.map((item) => {
+        if (item.userId !== userId || item.id !== notificationId || item.isRead) {
+          return item;
+        }
+        updated += 1;
+        return { ...item, isRead: true };
+      });
+      return { updated };
+    });
+  }
+
+  private toPostView(post: PostRecord, userMap: Map<string, UserRecord>, store: InteractionStore, requesterId?: string): PostView {
+    return {
+      ...post,
+      author: this.toAuthorSummary(userMap.get(post.authorId)),
+      stats: this.toPostStats(post.id, store),
+      viewer: requesterId ? this.toViewerState(post, store, requesterId) : undefined,
+    };
+  }
+
+  private toCommentView(comment: CommentRecord, user?: UserRecord): CommentView {
+    return {
+      ...comment,
+      author: this.toAuthorSummary(user),
+    };
+  }
+
+  private toAuthorSummary(user?: UserRecord): PostAuthorSummary | null {
+    if (!user) return null;
+    return {
+      id: user.id,
+      username: user.username,
+      nickname: user.nickname,
+      avatarUrl: user.avatarUrl,
+    };
+  }
+
+  private toPostStats(postId: string, store: InteractionStore): PostStats {
+    return {
+      likesCount: store.likes.filter((item) => item.postId === postId).length,
+      commentsCount: store.comments.filter((item) => item.postId === postId).length,
+      favoritesCount: store.favorites.filter((item) => item.postId === postId).length,
+    };
+  }
+
+  private toViewerState(post: PostRecord, store: InteractionStore, requesterId: string): PostViewerState {
+    return {
+      hasLiked: store.likes.some((item) => item.postId === post.id && item.userId === requesterId),
+      hasFavorited: store.favorites.some((item) => item.postId === post.id && item.userId === requesterId),
+      isFollowingAuthor: post.authorId !== requesterId && store.follows.some(
+        (item) => item.followerId === requesterId && item.followeeId === post.authorId,
+      ),
+    };
+  }
+
+  private toNotificationMessage(
+    notification: NotificationRecord,
+    actor: PostAuthorSummary | null,
+  ): string {
+    const actorLabel = actor?.nickname?.trim() || actor?.username?.trim() || 'Someone';
+    const folderMatch = notification.message.match(/^Someone saved your post to "(.+)"\.$/);
+
+    if (notification.message === 'liked your post' || notification.message === 'Someone liked your post.') {
+      return `${actorLabel} liked your post.`;
+    }
+
+    if (
+      notification.message === 'replied to your comment' ||
+      notification.message === 'Someone replied to your comment.'
+    ) {
+      return `${actorLabel} replied to your comment.`;
+    }
+
+    if (
+      notification.message === 'commented on your post' ||
+      notification.message === 'Someone commented on your post.'
+    ) {
+      return `${actorLabel} commented on your post.`;
+    }
+
+    if (
+      notification.message === 'started following you' ||
+      notification.message === 'Someone started following you.'
+    ) {
+      return `${actorLabel} started following you.`;
+    }
+
+    if (folderMatch) {
+      return `${actorLabel} saved your post to "${folderMatch[1]}".`;
+    }
+
+    if (/^Someone [^.]+\.$/.test(notification.message)) {
+      return notification.message.replace(/^Someone/, actorLabel);
+    }
+
+    return notification.message;
+  }
   private appendNotification(
     notifications: NotificationRecord[],
     input: Omit<NotificationRecord, 'id' | 'isRead' | 'createdAt'>,
@@ -306,3 +441,11 @@ export class InteractionService {
     this.cache?.invalidatePrefix('feed:');
   }
 }
+
+
+
+
+
+
+
+

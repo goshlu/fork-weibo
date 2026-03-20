@@ -65,15 +65,15 @@ export async function buildApp() {
   const interactionRepository = new InteractionRepository(path.join(dataRoot, 'interactions.json'));
   const discoveryRepository = new DiscoveryRepository(path.join(dataRoot, 'search-trends.json'));
 
-  const userService = new UserService(userRepository);
-  const postService = new PostService(postRepository, cache);
+  const userService = new UserService(userRepository, postRepository, interactionRepository);
+  const postService = new PostService(postRepository, userRepository, interactionRepository, cache);
   const interactionService = new InteractionService(
     interactionRepository,
     userRepository,
     postRepository,
     cache,
   );
-  const feedService = new FeedService(postRepository, interactionRepository, cache);
+  const feedService = new FeedService(postRepository, interactionRepository, userRepository, cache);
   const discoveryService = new DiscoveryService(postRepository, discoveryRepository, cache);
 
   app.get('/health', async () => ({
@@ -96,3 +96,5 @@ export async function buildApp() {
 
   return app;
 }
+
+
