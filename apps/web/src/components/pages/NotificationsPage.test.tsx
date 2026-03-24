@@ -12,7 +12,7 @@ function renderWithEn(ui: ReactElement) {
 }
 
 function getFilterTabs() {
-  const container = document.querySelector('.filter-tabs');
+  const container = document.querySelector<HTMLElement>('.filter-tabs');
   if (!container) throw new Error('filter tabs container not found');
   return within(container);
 }
