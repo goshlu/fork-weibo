@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { api } from '../services/api';
+import { useI18n, formatTemplate } from '../i18n';
 import type {
   AuthFormState,
   AuthMode,
@@ -151,6 +152,8 @@ function buildViewerMaps(posts: Post[]): { liked: Record<string, boolean>; follo
 }
 
 export function useDashboard(): DashboardReturn {
+  const { dictionary } = useI18n();
+  const t = dictionary.messages;
   const [token, setToken] = useState(() => (typeof window === 'undefined' ? '' : window.localStorage.getItem(TOKEN_KEY) ?? ''));
   const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser());
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -210,7 +213,7 @@ export function useDashboard(): DashboardReturn {
         const data = await api.search(searchKeyword.trim());
         setSearchResults(data.items);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Search failed.');
+        setMessage(error instanceof Error ? error.message : t.searchFailed);
       }
     })();
   }, [searchKeyword]);
@@ -252,7 +255,7 @@ export function useDashboard(): DashboardReturn {
       setSearchTrends(trendData.items);
       setChannels(channelData.items);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Discovery load failed.');
+      setMessage(error instanceof Error ? error.message : t.discoveryFailed);
     }
   }
 
@@ -266,7 +269,7 @@ export function useDashboard(): DashboardReturn {
         setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Feed load failed.');
+      setMessage(error instanceof Error ? error.message : t.feedFailed);
     }
   }
 
@@ -305,7 +308,7 @@ export function useDashboard(): DashboardReturn {
       setNotifications(notificationsData.notifications);
       setFavorites(favoritesData.items);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Session refresh failed.');
+      setMessage(error instanceof Error ? error.message : t.sessionFailed);
     }
   }
 
@@ -335,7 +338,7 @@ export function useDashboard(): DashboardReturn {
       window.localStorage.removeItem(TOKEN_KEY);
       window.localStorage.removeItem(USER_KEY);
     }
-    setMessage('Signed out.');
+    setMessage(t.signedOut);
   }
 
   async function submitAuth() {
@@ -354,9 +357,9 @@ export function useDashboard(): DashboardReturn {
       }
       setAuthForm({ username: '', password: '', nickname: '' });
       setViewMode('profile');
-      setMessage(authMode === 'login' ? 'Logged in.' : 'Account created.');
+      setMessage(authMode === 'login' ? t.loggedIn : t.accountCreated);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Authentication failed.');
+      setMessage(error instanceof Error ? error.message : t.authFailed);
     } finally {
       setBusy('');
     }
@@ -364,11 +367,11 @@ export function useDashboard(): DashboardReturn {
 
   async function submitComposer() {
     if (!token) {
-      setMessage('Log in before posting.');
+      setMessage(t.loginRequired);
       return;
     }
     if (!composer.content.trim()) {
-      setMessage('Post content cannot be empty.');
+      setMessage(t.postEmpty);
       return;
     }
 
@@ -377,11 +380,11 @@ export function useDashboard(): DashboardReturn {
     try {
       await api.createPost({ content: composer.content.trim(), status: composer.status, images: composer.images }, token);
       setComposer({ content: '', status: 'published', images: [] });
-      setMessage(composer.status === 'draft' ? 'Draft saved.' : 'Post published.');
+      setMessage(composer.status === 'draft' ? t.draftSaved : t.postPublished);
       await Promise.all([loadFeed(feedMode, token), refreshAuthedData(token), loadDiscovery()]);
       setViewMode(composer.status === 'draft' ? 'drafts' : 'feed');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to submit post.');
+      setMessage(error instanceof Error ? error.message : t.postFailed);
     } finally {
       setBusy('');
     }
@@ -389,7 +392,7 @@ export function useDashboard(): DashboardReturn {
 
   async function saveProfile() {
     if (!token || !profile || !currentUser) {
-      setMessage('Log in before editing profile.');
+      setMessage(t.loginRequired);
       return;
     }
 
@@ -417,12 +420,12 @@ export function useDashboard(): DashboardReturn {
       if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
       setProfile((prev) => (prev ? { ...prev, nickname: data.user.nickname, bio: data.user.bio, updatedAt: data.user.updatedAt } : prev));
       setProfileForm((prev) => ({ ...prev, nickname: data.user.nickname, bio: data.user.bio, password: '' }));
-      setMessage('Profile updated.');
+      setMessage(t.profileUpdated);
     } catch (error) {
       setProfile(previousProfile);
       setCurrentUser(previousUser);
       if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(previousUser));
-      setMessage(error instanceof Error ? error.message : 'Failed to save profile.');
+      setMessage(error instanceof Error ? error.message : t.profileFailed);
     } finally {
       setBusy('');
     }
@@ -430,7 +433,7 @@ export function useDashboard(): DashboardReturn {
 
   async function uploadAvatar(file: File) {
     if (!token) {
-      setMessage('Log in before uploading an avatar.');
+      setMessage(t.loginRequired);
       return;
     }
 
@@ -441,9 +444,9 @@ export function useDashboard(): DashboardReturn {
       setAvatarPreview(data.user.avatarUrl ? apiBase(data.user.avatarUrl) : '');
       setProfile((prev) => (prev ? { ...prev, avatarUrl: data.user.avatarUrl, updatedAt: data.user.updatedAt } : prev));
       if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-      setMessage('Avatar updated.');
+      setMessage(t.avatarUpdated);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to upload avatar.');
+      setMessage(error instanceof Error ? error.message : t.avatarFailed);
     } finally {
       setBusy('');
     }
@@ -451,7 +454,7 @@ export function useDashboard(): DashboardReturn {
 
   async function toggleLike(postId: string) {
     if (!token) {
-      setMessage('Log in before liking a post.');
+      setMessage(t.loginRequired);
       return;
     }
 
@@ -462,7 +465,7 @@ export function useDashboard(): DashboardReturn {
       setLikedPostIds((prev) => ({ ...prev, [postId]: !liked }));
       await Promise.all([loadFeed(feedMode, token), refreshAuthedData(token)]);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to update like.');
+      setMessage(error instanceof Error ? error.message : t.likeFailed);
     } finally {
       setBusy('');
     }
@@ -470,7 +473,7 @@ export function useDashboard(): DashboardReturn {
 
   async function toggleFavorite(postId: string) {
     if (!token) {
-      setMessage('Log in before favoriting a post.');
+      setMessage(t.loginRequired);
       return;
     }
 
@@ -480,9 +483,9 @@ export function useDashboard(): DashboardReturn {
     try {
       await api.favoritePost(postId, favorited, token, folderName);
       await refreshAuthedData(token);
-      setMessage(favorited ? `Removed from ${folderName}.` : `Saved to ${folderName}.`);
+      setMessage(favorited ? formatTemplate(t.removedFromFolder, { folder: folderName }) : formatTemplate(t.savedToFolder, { folder: folderName }));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to update favorite.');
+      setMessage(error instanceof Error ? error.message : t.favoriteFailed);
     } finally {
       setBusy('');
     }
@@ -490,11 +493,11 @@ export function useDashboard(): DashboardReturn {
 
   async function toggleFollow(authorId: string) {
     if (!token) {
-      setMessage('Log in before following users.');
+      setMessage(t.loginRequired);
       return;
     }
     if (authorId === currentUser?.id) {
-      setMessage('You cannot follow yourself.');
+      setMessage(t.cannotFollowSelf);
       return;
     }
 
@@ -505,7 +508,7 @@ export function useDashboard(): DashboardReturn {
       setFollowingAuthorIds((prev) => ({ ...prev, [authorId]: !followed }));
       await refreshAuthedData(token);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to update follow state.');
+      setMessage(error instanceof Error ? error.message : t.followFailed);
     } finally {
       setBusy('');
     }
@@ -520,19 +523,19 @@ export function useDashboard(): DashboardReturn {
       const data = await api.getComments(postId);
       setCommentsByPost((prev) => ({ ...prev, [postId]: data.comments }));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to load comments.');
+      setMessage(error instanceof Error ? error.message : t.commentsFailed);
     }
   }
 
   async function submitComment(postId: string, parentId?: string) {
     if (!token) {
-      setMessage('Log in before commenting.');
+      setMessage(t.loginRequired);
       return;
     }
 
     const content = (commentDrafts[postId] ?? '').trim();
     if (!content) {
-      setMessage('Comment cannot be empty.');
+      setMessage(t.commentEmpty);
       return;
     }
 
@@ -543,7 +546,7 @@ export function useDashboard(): DashboardReturn {
       setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
       await refreshAuthedData(token);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to create comment.');
+      setMessage(error instanceof Error ? error.message : t.commentFailed);
     } finally {
       setBusy('');
     }
@@ -551,13 +554,13 @@ export function useDashboard(): DashboardReturn {
 
   async function saveDraft(postId: string) {
     if (!token) {
-      setMessage('Log in before editing drafts.');
+      setMessage(t.loginRequired);
       return;
     }
 
     const content = (draftEdits[postId] ?? '').trim();
     if (!content) {
-      setMessage('Draft content cannot be empty.');
+      setMessage(t.postEmpty);
       return;
     }
 
@@ -565,9 +568,9 @@ export function useDashboard(): DashboardReturn {
     try {
       await api.updatePost(postId, { content, status: 'draft' }, token);
       await refreshAuthedData(token);
-      setMessage('Draft saved.');
+      setMessage(t.draftSaved);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to save draft.');
+      setMessage(error instanceof Error ? error.message : t.saveDraftFailed);
     } finally {
       setBusy('');
     }
@@ -575,13 +578,13 @@ export function useDashboard(): DashboardReturn {
 
   async function publishDraft(postId: string) {
     if (!token) {
-      setMessage('Log in before publishing drafts.');
+      setMessage(t.loginRequired);
       return;
     }
 
     const content = (draftEdits[postId] ?? '').trim();
     if (!content) {
-      setMessage('Draft content cannot be empty.');
+      setMessage(t.postEmpty);
       return;
     }
 
@@ -590,9 +593,9 @@ export function useDashboard(): DashboardReturn {
       await api.updatePost(postId, { content, status: 'published' }, token);
       await Promise.all([refreshAuthedData(token), loadFeed(feedMode, token)]);
       setViewMode('profile');
-      setMessage('Draft published.');
+      setMessage(t.draftPublished);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to publish draft.');
+      setMessage(error instanceof Error ? error.message : t.publishDraftFailed);
     } finally {
       setBusy('');
     }
@@ -600,7 +603,7 @@ export function useDashboard(): DashboardReturn {
 
   async function deleteDraft(postId: string) {
     if (!token) {
-      setMessage('Log in before deleting drafts.');
+      setMessage(t.loginRequired);
       return;
     }
 
@@ -608,9 +611,9 @@ export function useDashboard(): DashboardReturn {
     try {
       await api.deletePost(postId, token);
       await refreshAuthedData(token);
-      setMessage('Draft deleted.');
+      setMessage(t.draftDeleted);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to delete draft.');
+      setMessage(error instanceof Error ? error.message : t.deleteDraftFailed);
     } finally {
       setBusy('');
     }
@@ -632,7 +635,7 @@ export function useDashboard(): DashboardReturn {
       setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
       setViewMode('post');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to open post detail.');
+      setMessage(error instanceof Error ? error.message : t.postDetailFailed);
     }
   }
   async function openUserProfile(userId: string) {
@@ -655,7 +658,7 @@ export function useDashboard(): DashboardReturn {
       setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
       setViewMode('user');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to open user profile.');
+      setMessage(error instanceof Error ? error.message : t.userProfileFailed);
     }
   }
   async function openNotification(notification: Notification) {
@@ -679,13 +682,13 @@ export function useDashboard(): DashboardReturn {
 
       await openUserProfile(notification.actorId);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to open notification target.');
+      setMessage(error instanceof Error ? error.message : t.notificationTargetFailed);
     }
   }
 
   async function markNotificationsRead() {
     if (!token) {
-      setMessage('Log in before managing notifications.');
+      setMessage(t.loginRequired);
       return;
     }
 
@@ -694,7 +697,7 @@ export function useDashboard(): DashboardReturn {
       await api.markNotificationsRead(token);
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to mark notifications as read.');
+      setMessage(error instanceof Error ? error.message : t.notificationMarkFailed);
     } finally {
       setBusy('');
     }
@@ -702,7 +705,7 @@ export function useDashboard(): DashboardReturn {
 
   async function markOneNotificationRead(id: string) {
     if (!token) {
-      setMessage('Log in before managing notifications.');
+      setMessage(t.loginRequired);
       return;
     }
 
@@ -710,7 +713,7 @@ export function useDashboard(): DashboardReturn {
       await api.markNotificationRead(id, token);
       setNotifications((prev) => prev.map((item) => item.id === id ? { ...item, isRead: true } : item));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to mark notification as read.');
+      setMessage(error instanceof Error ? error.message : t.notificationMarkOneFailed);
     }
   }
 
@@ -730,7 +733,7 @@ export function useDashboard(): DashboardReturn {
         setNotificationHasMore(false);
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Failed to load more notifications.');
+      setMessage(error instanceof Error ? error.message : t.loadMoreNotificationsFailed);
     } finally {
       setLoadingMore(false);
     }

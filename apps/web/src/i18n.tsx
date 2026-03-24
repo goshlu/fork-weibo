@@ -177,6 +177,45 @@ export type Dictionary = {
   };
   viewTitles: Record<ViewMode, string>;
   feedTitles: Record<FeedMode, string>;
+  messages: {
+    loginRequired: string;
+    postEmpty: string;
+    postPublished: string;
+    draftSaved: string;
+    signedOut: string;
+    loggedIn: string;
+    accountCreated: string;
+    profileUpdated: string;
+    avatarUpdated: string;
+    draftPublished: string;
+    draftDeleted: string;
+    commentEmpty: string;
+    cannotFollowSelf: string;
+    savedToFolder: string;
+    removedFromFolder: string;
+    searchFailed: string;
+    discoveryFailed: string;
+    feedFailed: string;
+    sessionFailed: string;
+    authFailed: string;
+    postFailed: string;
+    profileFailed: string;
+    avatarFailed: string;
+    likeFailed: string;
+    favoriteFailed: string;
+    followFailed: string;
+    commentsFailed: string;
+    commentFailed: string;
+    saveDraftFailed: string;
+    publishDraftFailed: string;
+    deleteDraftFailed: string;
+    postDetailFailed: string;
+    userProfileFailed: string;
+    notificationTargetFailed: string;
+    notificationMarkFailed: string;
+    notificationMarkOneFailed: string;
+    loadMoreNotificationsFailed: string;
+  };
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
@@ -365,6 +404,45 @@ const dictionaries: Record<Locale, Dictionary> = {
       following: 'Following',
       recommended: 'Recommended',
     },
+    messages: {
+      loginRequired: 'Log in before posting.',
+      postEmpty: 'Post content cannot be empty.',
+      postPublished: 'Post published.',
+      draftSaved: 'Draft saved.',
+      signedOut: 'Signed out.',
+      loggedIn: 'Logged in.',
+      accountCreated: 'Account created.',
+      profileUpdated: 'Profile updated.',
+      avatarUpdated: 'Avatar updated.',
+      draftPublished: 'Draft published.',
+      draftDeleted: 'Draft deleted.',
+      commentEmpty: 'Comment cannot be empty.',
+      cannotFollowSelf: 'You cannot follow yourself.',
+      savedToFolder: 'Saved to {folder}.',
+      removedFromFolder: 'Removed from {folder}.',
+      searchFailed: 'Search failed.',
+      discoveryFailed: 'Discovery load failed.',
+      feedFailed: 'Feed load failed.',
+      sessionFailed: 'Session refresh failed.',
+      authFailed: 'Authentication failed.',
+      postFailed: 'Failed to submit post.',
+      profileFailed: 'Failed to save profile.',
+      avatarFailed: 'Failed to upload avatar.',
+      likeFailed: 'Failed to update like.',
+      favoriteFailed: 'Failed to update favorite.',
+      followFailed: 'Failed to update follow state.',
+      commentsFailed: 'Failed to load comments.',
+      commentFailed: 'Failed to create comment.',
+      saveDraftFailed: 'Failed to save draft.',
+      publishDraftFailed: 'Failed to publish draft.',
+      deleteDraftFailed: 'Failed to delete draft.',
+      postDetailFailed: 'Failed to open post detail.',
+      userProfileFailed: 'Failed to open user profile.',
+      notificationTargetFailed: 'Failed to open notification target.',
+      notificationMarkFailed: 'Failed to mark notifications as read.',
+      notificationMarkOneFailed: 'Failed to mark notification as read.',
+      loadMoreNotificationsFailed: 'Failed to load more notifications.',
+    },
   },
   zh: {
     common: {
@@ -550,6 +628,45 @@ const dictionaries: Record<Locale, Dictionary> = {
       hot: '热门',
       following: '关注中',
       recommended: '推荐',
+    },
+    messages: {
+      loginRequired: '请先登录再发布内容。',
+      postEmpty: '帖子内容不能为空。',
+      postPublished: '帖子已发布。',
+      draftSaved: '草稿已保存。',
+      signedOut: '已退出登录。',
+      loggedIn: '登录成功。',
+      accountCreated: '账号已创建。',
+      profileUpdated: '资料已更新。',
+      avatarUpdated: '头像已更新。',
+      draftPublished: '草稿已发布。',
+      draftDeleted: '草稿已删除。',
+      commentEmpty: '评论内容不能为空。',
+      cannotFollowSelf: '不能关注自己。',
+      savedToFolder: '已保存到 {folder}。',
+      removedFromFolder: '已从 {folder} 移除。',
+      searchFailed: '搜索失败。',
+      discoveryFailed: '发现内容加载失败。',
+      feedFailed: '动态加载失败。',
+      sessionFailed: '会话刷新失败。',
+      authFailed: '认证失败。',
+      postFailed: '发布帖子失败。',
+      profileFailed: '保存资料失败。',
+      avatarFailed: '上传头像失败。',
+      likeFailed: '点赞操作失败。',
+      favoriteFailed: '收藏操作失败。',
+      followFailed: '关注操作失败。',
+      commentsFailed: '加载评论失败。',
+      commentFailed: '发表评论失败。',
+      saveDraftFailed: '保存草稿失败。',
+      publishDraftFailed: '发布草稿失败。',
+      deleteDraftFailed: '删除草稿失败。',
+      postDetailFailed: '打开帖子详情失败。',
+      userProfileFailed: '打开用户主页失败。',
+      notificationTargetFailed: '打开通知目标失败。',
+      notificationMarkFailed: '标记通知已读失败。',
+      notificationMarkOneFailed: '标记通知已读失败。',
+      loadMoreNotificationsFailed: '加载更多通知失败。',
     },
   },
 };
