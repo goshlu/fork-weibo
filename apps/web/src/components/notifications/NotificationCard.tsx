@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react';
 import type { Notification } from '../../types/app';
 import {
   formatNotificationTime,
@@ -19,15 +20,15 @@ type NotificationCardProps = {
   onClick?: (notification: Notification) => void;
 };
 
-export function NotificationCard({ notification, onMarkRead, onClick }: NotificationCardProps) {
-  const handleClick = () => {
+export const NotificationCard = memo(function NotificationCard({ notification, onMarkRead, onClick }: NotificationCardProps) {
+  const handleClick = useCallback(() => {
     onClick?.(notification);
-  };
+  }, [onClick, notification]);
 
-  const handleMarkReadClick = (e: React.MouseEvent) => {
+  const handleMarkReadClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onMarkRead?.(notification.id);
-  };
+  }, [onMarkRead, notification.id]);
 
   return (
     <div className="notification-page-card-wrapper">
@@ -76,4 +77,4 @@ export function NotificationCard({ notification, onMarkRead, onClick }: Notifica
       </button>
     </div>
   );
-}
+});

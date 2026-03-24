@@ -51,6 +51,21 @@ describe('notification utils', () => {
       const expected = new Date('2023-12-01T12:00:00Z').toLocaleDateString([], { month: 'short', day: 'numeric' });
       expect(formatNotificationTime(time)).toBe(expected);
     });
+
+    it('should return original string for invalid date', () => {
+      const invalidTime = 'invalid-date-string';
+      expect(formatNotificationTime(invalidTime)).toBe('invalid-date-string');
+    });
+
+    it('should return "1m ago" for exactly 0 minutes (edge case)', () => {
+      const time = new Date('2024-01-01T11:59:00Z').toISOString();
+      expect(formatNotificationTime(time)).toBe('1m ago');
+    });
+
+    it('should return "1h ago" for exactly 0 hours (edge case)', () => {
+      const time = new Date('2024-01-01T11:00:00Z').toISOString();
+      expect(formatNotificationTime(time)).toBe('1h ago');
+    });
   });
 
   describe('notificationTypeLabel', () => {
@@ -137,6 +152,20 @@ describe('notification utils', () => {
       } as Notification;
       expect(notificationActorInitial(notification)).toBe('S');
     });
+
+    it('should handle whitespace-only nickname', () => {
+      const notification = {
+        actor: { nickname: '   ', username: '' },
+      } as Notification;
+      expect(notificationActorInitial(notification)).toBe('S');
+    });
+
+    it('should handle null actor', () => {
+      const notification = {
+        actor: null,
+      } as Notification;
+      expect(notificationActorInitial(notification)).toBe('S');
+    });
   });
 
   describe('formatNotificationMessage', () => {
@@ -178,6 +207,62 @@ describe('notification utils', () => {
         actor: { nickname: '赵六' },
       } as Notification;
       expect(formatNotificationMessage(notification)).toBe('赵六 saved your post to "Reading List".');
+    });
+
+    it('should format "Someone saved your post to" pattern', () => {
+      const notification = {
+        message: 'Someone saved your post to "Favorites".',
+        actor: { nickname: '张三' },
+      } as Notification;
+      expect(formatNotificationMessage(notification)).toBe('张三 saved your post to "Favorites".');
+    });
+
+    it('should format "Someone [action]" pattern', () => {
+      const notification = {
+        message: 'Someone mentioned you.',
+        actor: { nickname: '李四' },
+      } as Notification;
+      expect(formatNotificationMessage(notification)).toBe('李四 mentioned you.');
+    });
+
+    it('should capitalize first letter and add period for unknown message format', () => {
+      const notification = {
+        message: 'a custom notification message',
+        actor: { nickname: '王五' },
+      } as Notification;
+      expect(formatNotificationMessage(notification)).toBe('A custom notification message.');
+    });
+
+    it('should handle "Someone liked your post" pattern', () => {
+      const notification = {
+        message: 'Someone liked your post.',
+        actor: { nickname: '赵六' },
+      } as Notification;
+      expect(formatNotificationMessage(notification)).toBe('赵六 liked your post.');
+    });
+
+    it('should handle "Someone replied to your comment" pattern', () => {
+      const notification = {
+        message: 'Someone replied to your comment.',
+        actor: { nickname: '孙七' },
+      } as Notification;
+      expect(formatNotificationMessage(notification)).toBe('孙七 replied to your comment.');
+    });
+
+    it('should handle "Someone commented on your post" pattern', () => {
+      const notification = {
+        message: 'Someone commented on your post.',
+        actor: { nickname: '周八' },
+      } as Notification;
+      expect(formatNotificationMessage(notification)).toBe('周八 commented on your post.');
+    });
+
+    it('should handle "Someone started following you" pattern', () => {
+      const notification = {
+        message: 'Someone started following you.',
+        actor: { nickname: '吴九' },
+      } as Notification;
+      expect(formatNotificationMessage(notification)).toBe('吴九 started following you.');
     });
   });
 });

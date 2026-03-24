@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Notification } from '../../types/app';
 import { FilterTabs } from '../ui/FilterTabs';
 import { NotificationCard } from '../notifications/NotificationCard';
@@ -64,11 +64,22 @@ export function NotificationsPage({
     return () => observer.disconnect();
   }, [onLoadMore, hasMore, loadingMore]);
 
-  const filteredNotifications = activeFilter === 'all'
-    ? notifications
-    : notifications.filter((n) => n.type === activeFilter);
+  // Memoize filtered notifications to avoid re-filtering on every render
+  const filteredNotifications = useMemo(() => {
+    return activeFilter === 'all' ? notifications : notifications.filter((n) => n.type === activeFilter);
+  }, [notifications, activeFilter]);
 
-  const groups = groupNotificationsByDate(filteredNotifications);
+  // Memoize groups calculation
+  const groups = useMemo(() => groupNotificationsByDate(filteredNotifications), [filteredNotifications]);
+
+  // Memoize handlers to prevent unnecessary re-renders of child components
+  const handleFilterChange = useCallback((filter: FilterType) => {
+    setActiveFilter(filter);
+  }, []);
+
+  const handleMarkAllRead = useCallback(() => {
+    onMarkAllRead();
+  }, [onMarkAllRead]);
 
   return (
     <>
@@ -77,14 +88,14 @@ export function NotificationsPage({
           <p className="section-label">Notification Center</p>
           <h2>All notifications</h2>
         </div>
-        <button className="ghost-button" onClick={onMarkAllRead} type="button">
+        <button className="ghost-button" onClick={handleMarkAllRead} type="button">
           Mark all read
         </button>
       </div>
 
       <FilterTabs
         activeFilter={activeFilter}
-        onChange={setActiveFilter}
+        onChange={handleFilterChange}
         notifications={notifications}
       />
 

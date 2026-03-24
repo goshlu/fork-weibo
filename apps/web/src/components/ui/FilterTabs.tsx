@@ -1,3 +1,4 @@
+import { useMemo, useCallback } from 'react';
 import type { Notification } from '../../types/app';
 
 type FilterType = 'all' | 'like' | 'comment' | 'follow' | 'favorite';
@@ -15,29 +16,31 @@ type FilterTabsProps = {
 };
 
 export function FilterTabs({ activeFilter, onChange, notifications }: FilterTabsProps) {
-  const tabs: FilterTab[] = [
-    { key: 'all', label: '全部', unreadCount: notifications.filter((n) => !n.isRead).length },
-    {
-      key: 'like',
-      label: '点赞',
-      unreadCount: notifications.filter((n) => !n.isRead && n.type === 'like').length,
-    },
-    {
-      key: 'comment',
-      label: '评论',
-      unreadCount: notifications.filter((n) => !n.isRead && n.type === 'comment').length,
-    },
-    {
-      key: 'follow',
-      label: '关注',
-      unreadCount: notifications.filter((n) => !n.isRead && n.type === 'follow').length,
-    },
-    {
-      key: 'favorite',
-      label: '收藏',
-      unreadCount: notifications.filter((n) => !n.isRead && n.type === 'favorite').length,
-    },
-  ];
+  // Compute unread counts once with a single pass through notifications
+  const unreadCounts = useMemo(() => {
+    const counts: Record<FilterType, number> = { all: 0, like: 0, comment: 0, follow: 0, favorite: 0 };
+    for (const n of notifications) {
+      if (!n.isRead) {
+        counts.all++;
+        if (n.type === 'like' || n.type === 'comment' || n.type === 'follow' || n.type === 'favorite') {
+          counts[n.type]++;
+        }
+      }
+    }
+    return counts;
+  }, [notifications]);
+
+  const tabs: FilterTab[] = useMemo(() => [
+    { key: 'all', label: '全部', unreadCount: unreadCounts.all },
+    { key: 'like', label: '点赞', unreadCount: unreadCounts.like },
+    { key: 'comment', label: '评论', unreadCount: unreadCounts.comment },
+    { key: 'follow', label: '关注', unreadCount: unreadCounts.follow },
+    { key: 'favorite', label: '收藏', unreadCount: unreadCounts.favorite },
+  ], [unreadCounts]);
+
+  const handleClick = useCallback((key: FilterType) => {
+    onChange(key);
+  }, [onChange]);
 
   return (
     <div className="filter-tabs">
@@ -45,7 +48,7 @@ export function FilterTabs({ activeFilter, onChange, notifications }: FilterTabs
         <button
           className={activeFilter === tab.key ? 'filter-tab active' : 'filter-tab'}
           key={tab.key}
-          onClick={() => onChange(tab.key)}
+          onClick={() => handleClick(tab.key)}
           type="button"
         >
           {tab.label}

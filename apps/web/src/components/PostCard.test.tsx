@@ -477,8 +477,8 @@ describe('PostCard', () => {
           onFavorite={defaultHandlers.onFavorite}
           onFollow={defaultHandlers.onFollow}
           onToggleComments={defaultHandlers.onToggleComments}
-          onCommentDraftChange={() => {}}
-          onSubmitComment={() => {}}
+          onCommentDraftChange={() => { }}
+          onSubmitComment={() => { }}
         />
       );
 

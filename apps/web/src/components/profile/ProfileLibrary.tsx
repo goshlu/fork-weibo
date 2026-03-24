@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+﻿import { useMemo, useState, useCallback } from 'react';
 
 import { PostCard } from '../PostCard';
 import type { Comment, FavoriteItem, Post, ProfileTab } from '../../types/app';
@@ -55,6 +55,7 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
 
   const [newFolderName, setNewFolderName] = useState('');
 
+  // Memoize folders computation
   const folders = useMemo(() => {
     const names = new Set<string>([DEFAULT_FOLDER]);
     favorites.forEach((item) => names.add(item.folderName));
@@ -63,14 +64,36 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
   }, [favoriteFolderName, favorites]);
 
   const activeFolder = favoriteFolderName.trim() || DEFAULT_FOLDER;
-  const filteredFavorites = favorites.filter((item) => item.folderName === activeFolder);
 
-  function createFolder() {
+  // Memoize filtered favorites to avoid re-filtering on every render
+  const filteredFavorites = useMemo(() => {
+    return favorites.filter((item) => item.folderName === activeFolder);
+  }, [favorites, activeFolder]);
+
+  // Memoize folder counts to avoid repeated filtering
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of favorites) {
+      counts[item.folderName] = (counts[item.folderName] ?? 0) + 1;
+    }
+    return counts;
+  }, [favorites]);
+
+  // Memoize handlers
+  const handleTabChange = useCallback((tab: ProfileTab) => {
+    onTabChange(tab);
+  }, [onTabChange]);
+
+  const handleFolderChange = useCallback((folder: string) => {
+    onFavoriteFolderNameChange(folder);
+  }, [onFavoriteFolderNameChange]);
+
+  const handleCreateFolder = useCallback(() => {
     const nextFolder = newFolderName.trim();
     if (!nextFolder) return;
     onFavoriteFolderNameChange(nextFolder);
     setNewFolderName('');
-  }
+  }, [newFolderName, onFavoriteFolderNameChange]);
 
   return (
     <div className="profile-section">
@@ -80,10 +103,10 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
           <p className="library-subtitle">Switch folders to change what Favorite means across the app.</p>
         </div>
         <div className="segmented-inline">
-          <button className={activeTab === 'published' ? 'active' : ''} onClick={() => onTabChange('published')} type="button">
+          <button className={activeTab === 'published' ? 'active' : ''} onClick={() => handleTabChange('published')} type="button">
             Published {posts.length}
           </button>
-          <button className={activeTab === 'favorites' ? 'active' : ''} onClick={() => onTabChange('favorites')} type="button">
+          <button className={activeTab === 'favorites' ? 'active' : ''} onClick={() => handleTabChange('favorites')} type="button">
             Favorites {favorites.length}
           </button>
         </div>
@@ -95,11 +118,11 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
             <button
               className={activeFolder === folder ? 'folder-chip active' : 'folder-chip'}
               key={folder}
-              onClick={() => onFavoriteFolderNameChange(folder)}
+              onClick={() => handleFolderChange(folder)}
               type="button"
             >
               {folder}
-              <span>{favorites.filter((item) => item.folderName === folder).length}</span>
+              <span>{folderCounts[folder] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -109,7 +132,7 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
             placeholder="New folder name"
             value={newFolderName}
           />
-          <button className="ghost-button" onClick={createFolder} type="button">Create</button>
+          <button className="ghost-button" onClick={handleCreateFolder} type="button">Create</button>
         </div>
       </div>
 
