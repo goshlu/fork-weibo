@@ -1,87 +1,25 @@
-﻿import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 
-import { viewTitles, type AuthFormState, type AuthMode, type Notification, type User, type ViewMode } from '../types/app';
+import { useI18n, formatTemplate } from '../i18n';
+import { type AuthFormState, type AuthMode, type Notification, type User, type ViewMode } from '../types/app';
+import {
+  formatNotificationMessage,
+  formatNotificationTime,
+  notificationActorHandle,
+  notificationActorInitial,
+  notificationActorLabel,
+  notificationTypeLabel,
+} from '../utils/notification';
 
 function resolveMediaUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
   return `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'}`.replace(/\/api$/, '') + path;
 }
 
-function formatNotificationTime(createdAt: string): string {
-  const created = new Date(createdAt);
-  if (Number.isNaN(created.getTime())) return createdAt;
-
-  const now = new Date();
-  const diffMs = now.getTime() - created.getTime();
-  const minute = 60 * 1000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diffMs < minute) return 'just now';
-  if (diffMs < hour) return `${Math.max(1, Math.floor(diffMs / minute))}m ago`;
-  if (diffMs < day) return `${Math.max(1, Math.floor(diffMs / hour))}h ago`;
-
-  const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate()).getTime();
-  const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const dayDiff = Math.round((todayDay - createdDay) / day);
-  const timeText = created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-
-  if (dayDiff === 1) return `昨天 ${timeText}`;
-  if (dayDiff < 7) return `${dayDiff}d ago`;
-
-  return created.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
-function notificationTypeLabel(notification: Notification): string {
-  if (notification.type === 'like') return 'Likes';
-  if (notification.type === 'favorite') return 'Saves';
-  if (notification.type === 'comment') return 'Replies';
-  return 'Follows';
-}
-
-function notificationActionLabel(notification: Notification): string {
-  if (notification.entityType === 'comment') return 'Jump to comment';
-  if (notification.entityType === 'post') return 'View post';
-  return 'Open profile';
-}
-
-function notificationActorLabel(notification: Notification): string {
-  const nickname = notification.actor?.nickname?.trim();
-  if (nickname) return nickname;
-  const username = notification.actor?.username?.trim();
-  if (username) return `@${username}`;
-  return 'Someone';
-}
-
-function notificationActorHandle(notification: Notification): string {
-  const username = notification.actor?.username?.trim();
-  if (username) return `@${username}`;
-  return `ID ${notification.actorId.slice(0, 8)}`;
-}
-
-function notificationActorInitial(notification: Notification): string {
-  return notificationActorLabel(notification).trim().charAt(0).toUpperCase() || 'S';
-}
-
-function formatNotificationMessage(notification: Notification): string {
-  const actor = notificationActorLabel(notification);
-  const message = notification.message.trim();
-  if (!message) return 'You have a new notification.';
-  if (message === 'liked your post' || message === 'Someone liked your post.') return `${actor} liked your post.`;
-  if (message === 'replied to your comment' || message === 'Someone replied to your comment.') return `${actor} replied to your comment.`;
-  if (message === 'commented on your post' || message === 'Someone commented on your post.') return `${actor} commented on your post.`;
-  if (message === 'started following you' || message === 'Someone started following you.') return `${actor} started following you.`;
-  if (message.startsWith('favorited your post into ')) {
-    const folderName = message.replace('favorited your post into ', '').trim();
-    return `${actor} saved your post to "${folderName}".`;
-  }
-  if (/^Someone saved your post to ".+"\.$/.test(message)) {
-    return message.replace(/^Someone/, actor);
-  }
-  if (/^Someone [^.]+\.$/.test(message)) {
-    return message.replace(/^Someone/, actor);
-  }
-  return `${message.charAt(0).toUpperCase()}${message.slice(1)}.`;
+function notificationActionLabel(notification: Notification, texts: ReturnType<typeof useI18n>['dictionary']['sidebar']): string {
+  if (notification.entityType === 'comment') return texts.actionJumpToComment;
+  if (notification.entityType === 'post') return texts.actionViewPost;
+  return texts.actionOpenProfile;
 }
 
 type LeftSidebarProps = {
@@ -116,6 +54,9 @@ export function LeftSidebar(props: LeftSidebarProps) {
     onLogout,
     onViewModeChange,
   } = props;
+  const { locale, setLocale, dictionary } = useI18n();
+  const viewTitles = dictionary.viewTitles;
+  const sidebar = dictionary.sidebar;
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
@@ -123,17 +64,19 @@ export function LeftSidebar(props: LeftSidebarProps) {
     <section className="panel left-panel sidebar-panel">
       <div className="brand-block sidebar-hero">
         <p className="eyebrow">fork-weibo</p>
-        <h1>Social Dashboard</h1>
-        <p className="lede">
-          Service layer, state layer, and component layer are separated. Profile, drafts,
-          and notifications are now first-class pages.
-        </p>
+        <h1>{sidebar.title}</h1>
+        <p className="lede">{sidebar.description}</p>
+        <div className="segmented-inline" style={{ marginTop: 8 }}>
+          <span className="section-label">{dictionary.common.language}</span>
+          <button className={locale === 'zh' ? 'active' : ''} onClick={() => setLocale('zh')} type="button">{dictionary.common.chinese}</button>
+          <button className={locale === 'en' ? 'active' : ''} onClick={() => setLocale('en')} type="button">{dictionary.common.english}</button>
+        </div>
       </div>
 
       <div className="sidebar-card sidebar-nav-card">
         <div className="sidebar-card-head">
-          <p className="section-label">Workspace</p>
-          <span className="sidebar-pill">{unreadCount} unread</span>
+          <p className="section-label">{sidebar.workspace}</p>
+          <span className="sidebar-pill">{formatTemplate(sidebar.unread, { count: unreadCount })}</span>
         </div>
         <div className="nav-list sidebar-nav-list">
           {(['feed', 'profile', 'drafts', 'notifications'] as ViewMode[]).map((mode) => (
@@ -159,8 +102,8 @@ export function LeftSidebar(props: LeftSidebarProps) {
       {!currentUser ? (
         <div className="sidebar-card sidebar-auth-card">
           <div className="sidebar-card-head">
-            <p className="section-label">Access</p>
-            <span className="sidebar-muted">Guest mode</span>
+            <p className="section-label">{sidebar.access}</p>
+            <span className="sidebar-muted">{sidebar.guestMode}</span>
           </div>
 
           <div className="auth-switch">
@@ -169,14 +112,14 @@ export function LeftSidebar(props: LeftSidebarProps) {
               onClick={() => onAuthModeChange('login')}
               type="button"
             >
-              Login
+              {sidebar.login}
             </button>
             <button
               className={authMode === 'register' ? 'active' : ''}
               onClick={() => onAuthModeChange('register')}
               type="button"
             >
-              Register
+              {sidebar.register}
             </button>
           </div>
 
@@ -188,7 +131,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
             }}
           >
             <label>
-              Username
+              {sidebar.username}
               <input
                 onChange={(event) =>
                   onAuthFormChange((prev) => ({ ...prev, username: event.target.value }))
@@ -198,38 +141,38 @@ export function LeftSidebar(props: LeftSidebarProps) {
               />
             </label>
             <label>
-              Password
+              {sidebar.password}
               <input
                 onChange={(event) =>
                   onAuthFormChange((prev) => ({ ...prev, password: event.target.value }))
                 }
-                placeholder="At least 8 chars"
+                placeholder={sidebar.passwordPlaceholder}
                 type="password"
                 value={authForm.password}
               />
             </label>
             {authMode === 'register' ? (
               <label>
-                Nickname
+                {sidebar.nickname}
                 <input
                   onChange={(event) =>
                     onAuthFormChange((prev) => ({ ...prev, nickname: event.target.value }))
                   }
-                  placeholder="Display name"
+                  placeholder={sidebar.nicknamePlaceholder}
                   value={authForm.nickname}
                 />
               </label>
             ) : null}
             <button className="primary-button sidebar-submit" disabled={busy === 'auth'} type="submit">
-              {busy === 'auth' ? 'Working...' : authMode === 'login' ? 'Login' : 'Register'}
+              {busy === 'auth' ? sidebar.authWorking : authMode === 'login' ? sidebar.login : sidebar.register}
             </button>
           </form>
         </div>
       ) : (
         <div className="sidebar-card sidebar-session-card">
           <div className="sidebar-card-head">
-            <p className="section-label">Session</p>
-            <span className="sidebar-status">Online</span>
+            <p className="section-label">{sidebar.session}</p>
+            <span className="sidebar-status">{sidebar.online}</span>
           </div>
           <div className="session-summary">
             <div className="session-avatar">{currentUser.nickname.slice(0, 1).toUpperCase()}</div>
@@ -239,7 +182,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
             </div>
           </div>
           <button className="ghost-button sidebar-logout" onClick={onLogout} type="button">
-            Logout
+            {sidebar.logout}
           </button>
         </div>
       )}
@@ -247,11 +190,11 @@ export function LeftSidebar(props: LeftSidebarProps) {
       <div className="sidebar-card sidebar-notice-card">
         <div className="inline-head sidebar-card-head">
           <div>
-            <p className="section-label">Notifications</p>
-            <h3>Preview</h3>
+            <p className="section-label">{sidebar.notifications}</p>
+            <h3>{sidebar.preview}</h3>
           </div>
           <button className="ghost-button" onClick={onMarkNotificationsRead} type="button">
-            Mark all read
+            {sidebar.markAllRead}
           </button>
         </div>
         <div className="notification-list sidebar-notification-list">
@@ -266,27 +209,27 @@ export function LeftSidebar(props: LeftSidebarProps) {
                 <div className="notification-row-content">
                   <div className="notification-actor-avatar">
                     {item.actor?.avatarUrl ? (
-                      <img alt={notificationActorLabel(item)} className="notification-actor-avatar-image" src={resolveMediaUrl(item.actor.avatarUrl)} />
+                      <img alt={notificationActorLabel(item, dictionary)} className="notification-actor-avatar-image" src={resolveMediaUrl(item.actor.avatarUrl)} />
                     ) : (
-                      <span>{notificationActorInitial(item)}</span>
+                      <span>{notificationActorInitial(item, dictionary)}</span>
                     )}
                   </div>
                   <div className="notification-copy">
                     <div className="notification-preview-head">
-                      <strong>{notificationTypeLabel(item)}</strong>
-                      <span>{notificationActionLabel(item)}</span>
+                      <strong>{notificationTypeLabel(item, dictionary)}</strong>
+                      <span>{notificationActionLabel(item, sidebar)}</span>
                     </div>
                     <div className="notification-actor-meta">
-                      <strong>{notificationActorLabel(item)}</strong>
-                      <span>{notificationActorHandle(item)} · {formatNotificationTime(item.createdAt)}</span>
+                      <strong>{notificationActorLabel(item, dictionary)}</strong>
+                      <span>{notificationActorHandle(item)} · {formatNotificationTime(item.createdAt, dictionary, locale)}</span>
                     </div>
-                    <p>{formatNotificationMessage(item)}</p>
+                    <p>{formatNotificationMessage(item, dictionary)}</p>
                   </div>
                 </div>
               </button>
             ))
           ) : (
-            <p className="sidebar-empty">No notifications yet.</p>
+            <p className="sidebar-empty">{sidebar.noNotifications}</p>
           )}
         </div>
       </div>

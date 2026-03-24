@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react';
+import { useI18n } from '../../i18n';
 import type { Notification } from '../../types/app';
 import {
   formatNotificationTime,
@@ -21,6 +22,8 @@ type NotificationCardProps = {
 };
 
 export const NotificationCard = memo(function NotificationCard({ notification, onMarkRead, onClick }: NotificationCardProps) {
+  const { dictionary, locale } = useI18n();
+
   const handleClick = useCallback(() => {
     onClick?.(notification);
   }, [onClick, notification]);
@@ -41,7 +44,7 @@ export const NotificationCard = memo(function NotificationCard({ notification, o
           <button
             className="notification-mark-read-btn"
             onClick={handleMarkReadClick}
-            title="Mark as read"
+            title={dictionary.sidebar.markAsRead}
             type="button"
           >
             ✓
@@ -52,26 +55,26 @@ export const NotificationCard = memo(function NotificationCard({ notification, o
             <div className="notification-actor-avatar notification-actor-avatar-large">
               {notification.actor?.avatarUrl ? (
                 <img
-                  alt={notificationActorLabel(notification)}
+                  alt={notificationActorLabel(notification, dictionary)}
                   className="notification-actor-avatar-image"
                   src={resolveMediaUrl(notification.actor.avatarUrl)}
                 />
               ) : (
-                <span>{notificationActorInitial(notification)}</span>
+                <span>{notificationActorInitial(notification, dictionary)}</span>
               )}
             </div>
-            {!notification.isRead && <span aria-label="未读" className="notification-unread-dot" />}
+            {!notification.isRead && <span aria-label={dictionary.sidebar.unreadDotLabel} className="notification-unread-dot" />}
           </div>
           <div className="notification-copy">
             <div className="post-meta notification-meta-row">
-              <span>{notificationTypeLabel(notification)}</span>
-              <span>{formatNotificationTime(notification.createdAt)}</span>
+              <span>{notificationTypeLabel(notification, dictionary)}</span>
+              <span>{formatNotificationTime(notification.createdAt, dictionary, locale)}</span>
             </div>
             <div className="notification-actor-meta">
-              <strong>{notificationActorLabel(notification)}</strong>
+              <strong>{notificationActorLabel(notification, dictionary)}</strong>
               <span>{notificationActorHandle(notification)}</span>
             </div>
-            <p>{formatNotificationMessage(notification)}</p>
+            <p>{formatNotificationMessage(notification, dictionary)}</p>
           </div>
         </div>
       </button>

@@ -1,4 +1,5 @@
 import { useMemo, useCallback } from 'react';
+import { useI18n } from '../../i18n';
 import type { Notification } from '../../types/app';
 
 type FilterType = 'all' | 'like' | 'comment' | 'follow' | 'favorite';
@@ -16,6 +17,8 @@ type FilterTabsProps = {
 };
 
 export function FilterTabs({ activeFilter, onChange, notifications }: FilterTabsProps) {
+  const { dictionary } = useI18n();
+
   // Compute unread counts once with a single pass through notifications
   const unreadCounts = useMemo(() => {
     const counts: Record<FilterType, number> = { all: 0, like: 0, comment: 0, follow: 0, favorite: 0 };
@@ -31,12 +34,12 @@ export function FilterTabs({ activeFilter, onChange, notifications }: FilterTabs
   }, [notifications]);
 
   const tabs: FilterTab[] = useMemo(() => [
-    { key: 'all', label: '全部', unreadCount: unreadCounts.all },
-    { key: 'like', label: '点赞', unreadCount: unreadCounts.like },
-    { key: 'comment', label: '评论', unreadCount: unreadCounts.comment },
-    { key: 'follow', label: '关注', unreadCount: unreadCounts.follow },
-    { key: 'favorite', label: '收藏', unreadCount: unreadCounts.favorite },
-  ], [unreadCounts]);
+    { key: 'all', label: dictionary.notifications.tabAll, unreadCount: unreadCounts.all },
+    { key: 'like', label: dictionary.notifications.tabLike, unreadCount: unreadCounts.like },
+    { key: 'comment', label: dictionary.notifications.tabComment, unreadCount: unreadCounts.comment },
+    { key: 'follow', label: dictionary.notifications.tabFollow, unreadCount: unreadCounts.follow },
+    { key: 'favorite', label: dictionary.notifications.tabFavorite, unreadCount: unreadCounts.favorite },
+  ], [dictionary.notifications, unreadCounts]);
 
   const handleClick = useCallback((key: FilterType) => {
     onChange(key);

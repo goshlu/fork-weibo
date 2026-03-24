@@ -1,8 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi } from 'vitest';
+import { I18nProvider } from '../../i18n';
 import { NotificationCard } from './NotificationCard';
 import type { Notification } from '../../types/app';
+
+function renderWithEn(ui: ReactElement) {
+  localStorage.setItem('fork_weibo_locale', 'en');
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 
 describe('NotificationCard', () => {
   const createNotification = (
@@ -29,7 +36,7 @@ describe('NotificationCard', () => {
   describe('rendering', () => {
     it('should render notification card with basic information', () => {
       const notification = createNotification('like', false);
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       expect(screen.getByText('Likes')).toBeInTheDocument();
       expect(screen.getByText('Test User')).toBeInTheDocument();
@@ -39,11 +46,11 @@ describe('NotificationCard', () => {
 
     it('should display unread indicator for unread notifications', () => {
       const unreadNotification = createNotification('like', false);
-      const { rerender } = render(
+      const { rerender } = renderWithEn(
         <NotificationCard notification={unreadNotification} />
       );
 
-      expect(screen.getByLabelText('未读')).toBeInTheDocument();
+      expect(screen.getByLabelText('Unread')).toBeInTheDocument();
       expect(screen.getByRole('button')).not.toHaveClass('read');
 
       rerender(<NotificationCard notification={createNotification('like', true)} />);
@@ -54,7 +61,7 @@ describe('NotificationCard', () => {
 
     it('should show avatar image when available', () => {
       const notification = createNotification('comment', false, true);
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       const avatarImage = screen.getByAltText('Test User');
       expect(avatarImage).toHaveAttribute('src', expect.stringContaining('/avatars/test.jpg'));
@@ -62,14 +69,14 @@ describe('NotificationCard', () => {
 
     it('should show initial letter when no avatar', () => {
       const notification = createNotification('follow', false, false);
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       expect(screen.getByText('T')).toBeInTheDocument();
     });
 
     it('should apply correct CSS classes', () => {
       const notification = createNotification('favorite', false);
-      const { container } = render(<NotificationCard notification={notification} />);
+      const { container } = renderWithEn(<NotificationCard notification={notification} />);
 
       expect(container.querySelector('.notification-page-card-wrapper')).toBeInTheDocument();
       expect(container.querySelector('.notification-page-card')).toBeInTheDocument();
@@ -83,7 +90,7 @@ describe('NotificationCard', () => {
       const unreadNotification = createNotification('like', false);
       const handleMarkRead = vi.fn();
 
-      render(<NotificationCard notification={unreadNotification} onMarkRead={handleMarkRead} />);
+      renderWithEn(<NotificationCard notification={unreadNotification} onMarkRead={handleMarkRead} />);
 
       const markReadButton = screen.getByTitle('Mark as read');
       expect(markReadButton).toBeInTheDocument();
@@ -94,7 +101,7 @@ describe('NotificationCard', () => {
       const readNotification = createNotification('like', true);
       const handleMarkRead = vi.fn();
 
-      render(<NotificationCard notification={readNotification} onMarkRead={handleMarkRead} />);
+      renderWithEn(<NotificationCard notification={readNotification} onMarkRead={handleMarkRead} />);
 
       expect(screen.queryByTitle('Mark as read')).not.toBeInTheDocument();
     });
@@ -102,7 +109,7 @@ describe('NotificationCard', () => {
     it('should not show mark as read button when onMarkRead is not provided', () => {
       const unreadNotification = createNotification('like', false);
 
-      render(<NotificationCard notification={unreadNotification} />);
+      renderWithEn(<NotificationCard notification={unreadNotification} />);
 
       expect(screen.queryByTitle('Mark as read')).not.toBeInTheDocument();
     });
@@ -112,7 +119,7 @@ describe('NotificationCard', () => {
       const unreadNotification = createNotification('like', false);
       const handleMarkRead = vi.fn();
 
-      render(
+      renderWithEn(
         <NotificationCard
           notification={unreadNotification}
           onMarkRead={handleMarkRead}
@@ -131,7 +138,7 @@ describe('NotificationCard', () => {
       const handleMarkRead = vi.fn();
       const handleClick = vi.fn();
 
-      render(
+      renderWithEn(
         <NotificationCard
           notification={unreadNotification}
           onMarkRead={handleMarkRead}
@@ -152,7 +159,7 @@ describe('NotificationCard', () => {
       const notification = createNotification('like', false);
       const handleClick = vi.fn();
 
-      render(<NotificationCard notification={notification} onClick={handleClick} />);
+      renderWithEn(<NotificationCard notification={notification} onClick={handleClick} />);
 
       await user.click(screen.getByRole('button'));
 
@@ -164,7 +171,7 @@ describe('NotificationCard', () => {
       const user = userEvent.setup();
       const notification = createNotification('comment', true);
 
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       await user.click(screen.getByRole('button'));
 
@@ -176,28 +183,28 @@ describe('NotificationCard', () => {
   describe('different notification types', () => {
     it('should render like notification correctly', () => {
       const notification = createNotification('like', false);
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       expect(screen.getByText('Likes')).toBeInTheDocument();
     });
 
     it('should render comment notification correctly', () => {
       const notification = createNotification('comment', false);
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       expect(screen.getByText('Replies')).toBeInTheDocument();
     });
 
     it('should render follow notification correctly', () => {
       const notification = createNotification('follow', false);
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       expect(screen.getByText('Follows')).toBeInTheDocument();
     });
 
     it('should render favorite notification correctly', () => {
       const notification = createNotification('favorite', false);
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       expect(screen.getByText('Saves')).toBeInTheDocument();
     });
@@ -206,7 +213,7 @@ describe('NotificationCard', () => {
   describe('accessibility', () => {
     it('should use button element for interaction', () => {
       const notification = createNotification('like', false);
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       const buttons = screen.getAllByRole('button');
       expect(buttons.length).toBeGreaterThan(0);
@@ -218,14 +225,14 @@ describe('NotificationCard', () => {
 
     it('should have proper aria-label for unread indicator', () => {
       const unreadNotification = createNotification('like', false);
-      render(<NotificationCard notification={unreadNotification} />);
+      renderWithEn(<NotificationCard notification={unreadNotification} />);
 
-      expect(screen.getByLabelText('未读')).toBeInTheDocument();
+      expect(screen.getByLabelText('Unread')).toBeInTheDocument();
     });
 
     it('should have title attribute on mark as read button', () => {
       const unreadNotification = createNotification('like', false);
-      render(<NotificationCard notification={unreadNotification} onMarkRead={vi.fn()} />);
+      renderWithEn(<NotificationCard notification={unreadNotification} onMarkRead={vi.fn()} />);
 
       expect(screen.getByTitle('Mark as read')).toBeInTheDocument();
     });
@@ -246,7 +253,7 @@ describe('NotificationCard', () => {
       };
 
       expect(() => {
-        render(<NotificationCard notification={incompleteNotification} />);
+        renderWithEn(<NotificationCard notification={incompleteNotification} />);
       }).not.toThrow();
 
       expect(screen.getByText('Someone')).toBeInTheDocument();
@@ -265,7 +272,7 @@ describe('NotificationCard', () => {
         createdAt: new Date().toISOString(),
       };
 
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       expect(screen.getByText('You have a new notification.')).toBeInTheDocument();
     });
@@ -288,7 +295,7 @@ describe('NotificationCard', () => {
         createdAt: new Date().toISOString(),
       };
 
-      render(<NotificationCard notification={notification} />);
+      renderWithEn(<NotificationCard notification={notification} />);
 
       expect(
         screen.getByText('ThisIsAVeryLongNicknameThatShouldBeTruncatedInActualDisplay')

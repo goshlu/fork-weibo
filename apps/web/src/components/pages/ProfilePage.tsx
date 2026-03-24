@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
+import { useI18n } from '../../i18n';
 import { ProfileEditor } from '../profile/ProfileEditor';
 import { ProfileHeader } from '../profile/ProfileHeader';
 import { ProfileLibrary } from '../profile/ProfileLibrary';
@@ -87,6 +88,7 @@ async function cropAvatar(file: File, crop: CropState): Promise<File> {
 }
 
 export function ProfilePage(props: ProfilePageProps) {
+  const { dictionary } = useI18n();
   const {
     avatarPreview,
     busy,
@@ -134,7 +136,7 @@ export function ProfilePage(props: ProfilePageProps) {
     };
   }, [pendingAvatar]);
 
-  if (!profile) return <div className="empty-state">Log in to view your profile.</div>;
+  if (!profile) return <div className="empty-state">{dictionary.profile.loginRequired}</div>;
 
   const previewSrc = localPreview || avatarPreview;
 

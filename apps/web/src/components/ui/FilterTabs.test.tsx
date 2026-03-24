@@ -1,8 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi } from 'vitest';
+import { I18nProvider } from '../../i18n';
 import { FilterTabs } from './FilterTabs';
 import type { Notification } from '../../types/app';
+
+function renderWithZh(ui: ReactElement) {
+  localStorage.setItem('fork_weibo_locale', 'zh');
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 
 describe('FilterTabs', () => {
   const createNotification = (type: Notification['type'], isRead: boolean): Notification => ({
@@ -29,7 +36,7 @@ describe('FilterTabs', () => {
 
   describe('rendering', () => {
     it('should render all filter tabs', () => {
-      render(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
+      renderWithZh(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
 
       expect(screen.getByText('全部')).toBeInTheDocument();
       expect(screen.getByText('点赞')).toBeInTheDocument();
@@ -39,7 +46,7 @@ describe('FilterTabs', () => {
     });
 
     it('should display unread count badges for each tab', () => {
-      render(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
+      renderWithZh(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
 
       // 全部：5 个未读
       const allTab = screen.getByText('全部').closest('button');
@@ -63,14 +70,16 @@ describe('FilterTabs', () => {
     });
 
     it('should highlight the active filter tab', () => {
-      const { rerender } = render(
-        <FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />
-      );
+      const { rerender } = renderWithZh(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
 
       const allTab = screen.getByText('全部').closest('button');
       expect(allTab).toHaveClass('active');
 
-      rerender(<FilterTabs activeFilter="like" onChange={vi.fn()} notifications={mockNotifications} />);
+      rerender(
+        <I18nProvider>
+          <FilterTabs activeFilter="like" onChange={vi.fn()} notifications={mockNotifications} />
+        </I18nProvider>
+      );
 
       const likeTab = screen.getByText('点赞').closest('button');
       expect(likeTab).toHaveClass('active');
@@ -82,7 +91,7 @@ describe('FilterTabs', () => {
         createNotification('follow', true),
       ];
 
-      render(<FilterTabs activeFilter="follow" onChange={vi.fn()} notifications={readNotifications} />);
+      renderWithZh(<FilterTabs activeFilter="follow" onChange={vi.fn()} notifications={readNotifications} />);
 
       const followTab = screen.getByText('关注').closest('button');
       expect(followTab).not.toHaveTextContent('0');
@@ -93,7 +102,7 @@ describe('FilterTabs', () => {
         .fill(null)
         .map(() => createNotification('like', false));
 
-      render(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={manyNotifications} />);
+      renderWithZh(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={manyNotifications} />);
 
       const allTab = screen.getByText('全部').closest('button');
       expect(allTab).toHaveTextContent('99');
@@ -105,7 +114,7 @@ describe('FilterTabs', () => {
       const handleChange = vi.fn();
       const user = userEvent.setup();
 
-      render(
+      renderWithZh(
         <FilterTabs activeFilter="all" onChange={handleChange} notifications={mockNotifications} />
       );
 
@@ -120,7 +129,7 @@ describe('FilterTabs', () => {
       const handleChange = vi.fn();
       const user = userEvent.setup();
 
-      const { rerender } = render(
+      const { rerender } = renderWithZh(
         <FilterTabs activeFilter="all" onChange={handleChange} notifications={mockNotifications} />
       );
 
@@ -128,7 +137,9 @@ describe('FilterTabs', () => {
 
       // 模拟父组件更新 activeFilter
       rerender(
-        <FilterTabs activeFilter="like" onChange={handleChange} notifications={mockNotifications} />
+        <I18nProvider>
+          <FilterTabs activeFilter="like" onChange={handleChange} notifications={mockNotifications} />
+        </I18nProvider>
       );
 
       expect(screen.getByText('点赞').closest('button')).toHaveClass('active');
@@ -138,7 +149,7 @@ describe('FilterTabs', () => {
 
   describe('accessibility', () => {
     it('should use button elements for tabs', () => {
-      render(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
+      renderWithZh(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
 
       const buttons = screen.getAllByRole('button');
       expect(buttons).toHaveLength(5);
@@ -149,7 +160,7 @@ describe('FilterTabs', () => {
     });
 
     it('should have proper class names for styling', () => {
-      render(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
+      renderWithZh(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={mockNotifications} />);
 
       const container = document.querySelector('.filter-tabs');
       expect(container).toBeInTheDocument();
@@ -163,7 +174,7 @@ describe('FilterTabs', () => {
 
   describe('edge cases', () => {
     it('should handle empty notifications list', () => {
-      render(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={[]} />);
+      renderWithZh(<FilterTabs activeFilter="all" onChange={vi.fn()} notifications={[]} />);
 
       expect(screen.getByText('全部')).toBeInTheDocument();
       expect(screen.getByText('点赞')).toBeInTheDocument();
@@ -190,7 +201,7 @@ describe('FilterTabs', () => {
         },
       ];
 
-      render(
+      renderWithZh(
         <FilterTabs
           activeFilter="all"
           onChange={vi.fn()}

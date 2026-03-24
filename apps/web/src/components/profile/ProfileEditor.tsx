@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 
+import { useI18n } from '../../i18n';
 import type { ProfileFormState } from '../../types/app';
 
 type CropState = {
@@ -23,6 +24,8 @@ type ProfileEditorProps = {
 };
 
 export function ProfileEditor(props: ProfileEditorProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.profile;
   const {
     avatarPreview,
     busy,
@@ -41,7 +44,7 @@ export function ProfileEditor(props: ProfileEditorProps) {
     <div className="profile-card">
       <div className="stack-form compact-form">
         <label>
-          Avatar
+          {texts.avatar}
           <input
             accept="image/*"
             onChange={(event) => {
@@ -56,7 +59,7 @@ export function ProfileEditor(props: ProfileEditorProps) {
             <div className="avatar-shell avatar-shell-large avatar-preview-shell">
               {avatarPreview ? (
                 <img
-                  alt="Avatar preview"
+                  alt={texts.avatarPreview}
                   className="avatar-image"
                   src={avatarPreview}
                   style={{
@@ -67,39 +70,39 @@ export function ProfileEditor(props: ProfileEditorProps) {
               ) : null}
             </div>
             <label>
-              Zoom
+              {texts.zoom}
               <input max="2.5" min="1" onChange={(event) => onCropChange((prev) => ({ ...prev, scale: Number(event.target.value) }))} step="0.05" type="range" value={crop.scale} />
             </label>
             <label>
-              Horizontal
+              {texts.horizontal}
               <input max="100" min="0" onChange={(event) => onCropChange((prev) => ({ ...prev, offsetX: Number(event.target.value) }))} type="range" value={crop.offsetX} />
             </label>
             <label>
-              Vertical
+              {texts.vertical}
               <input max="100" min="0" onChange={(event) => onCropChange((prev) => ({ ...prev, offsetY: Number(event.target.value) }))} type="range" value={crop.offsetY} />
             </label>
             <div className="post-actions">
               <button className="primary-button" disabled={busy === 'avatar'} onClick={onApplyAvatar} type="button">
-                {busy === 'avatar' ? 'Uploading avatar...' : 'Apply cropped avatar'}
+                {busy === 'avatar' ? texts.uploadingAvatar : texts.applyCroppedAvatar}
               </button>
-              <button onClick={onCancelAvatar} type="button">Cancel</button>
+              <button onClick={onCancelAvatar} type="button">{texts.cancel}</button>
             </div>
           </div>
         ) : null}
         <label>
-          Nickname
+          {texts.nickname}
           <input value={profileForm.nickname} onChange={(event) => onProfileFormChange((prev) => ({ ...prev, nickname: event.target.value }))} />
         </label>
         <label>
-          Bio
+          {texts.bio}
           <textarea rows={3} value={profileForm.bio} onChange={(event) => onProfileFormChange((prev) => ({ ...prev, bio: event.target.value }))} />
         </label>
         <label>
-          New password
-          <input type="password" value={profileForm.password} onChange={(event) => onProfileFormChange((prev) => ({ ...prev, password: event.target.value }))} placeholder="Leave blank to keep current password" />
+          {texts.newPassword}
+          <input type="password" value={profileForm.password} onChange={(event) => onProfileFormChange((prev) => ({ ...prev, password: event.target.value }))} placeholder={texts.keepPasswordHint} />
         </label>
         <button className="primary-button" disabled={busy === 'profile' || busy === 'avatar'} onClick={onSaveProfile} type="button">
-          {busy === 'profile' ? 'Saving...' : 'Save profile'}
+          {busy === 'profile' ? texts.saving : texts.saveProfile}
         </button>
       </div>
     </div>

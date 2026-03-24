@@ -1,24 +1,28 @@
-﻿import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useI18n } from '../../i18n';
 import type { Notification } from '../../types/app';
 import { FilterTabs } from '../ui/FilterTabs';
 import { NotificationCard } from '../notifications/NotificationCard';
 
 type NotificationGroup = { label: string; items: Notification[] };
 
-function groupNotificationsByDate(notifications: Notification[]): NotificationGroup[] {
+function groupNotificationsByDate(
+  notifications: Notification[],
+  labels: { today: string; yesterday: string; earlier: string },
+): NotificationGroup[] {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
 
-  const groups: Record<string, Notification[]> = { '今天': [], '昨天': [], '更早': [] };
+  const groups: Record<string, Notification[]> = { [labels.today]: [], [labels.yesterday]: [], [labels.earlier]: [] };
   for (const n of notifications) {
     const t = new Date(n.createdAt).getTime();
-    if (t >= todayStart) groups['今天'].push(n);
-    else if (t >= yesterdayStart) groups['昨天'].push(n);
-    else groups['更早'].push(n);
+    if (t >= todayStart) groups[labels.today].push(n);
+    else if (t >= yesterdayStart) groups[labels.yesterday].push(n);
+    else groups[labels.earlier].push(n);
   }
 
-  return (['今天', '昨天', '更早'] as const)
+  return ([labels.today, labels.yesterday, labels.earlier] as const)
     .filter((label) => groups[label].length > 0)
     .map((label) => ({ label, items: groups[label] }));
 }
@@ -44,6 +48,8 @@ export function NotificationsPage({
   hasMore = false,
   loadingMore = false
 }: NotificationsPageProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.notifications;
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -70,7 +76,14 @@ export function NotificationsPage({
   }, [notifications, activeFilter]);
 
   // Memoize groups calculation
-  const groups = useMemo(() => groupNotificationsByDate(filteredNotifications), [filteredNotifications]);
+  const groups = useMemo(
+    () => groupNotificationsByDate(filteredNotifications, {
+      today: texts.groupToday,
+      yesterday: texts.groupYesterday,
+      earlier: texts.groupEarlier,
+    }),
+    [filteredNotifications, texts.groupToday, texts.groupYesterday, texts.groupEarlier],
+  );
 
   // Memoize handlers to prevent unnecessary re-renders of child components
   const handleFilterChange = useCallback((filter: FilterType) => {
@@ -85,11 +98,11 @@ export function NotificationsPage({
     <>
       <div className="toolbar simple-toolbar page-toolbar">
         <div>
-          <p className="section-label">Notification Center</p>
-          <h2>All notifications</h2>
+          <p className="section-label">{texts.center}</p>
+          <h2>{texts.allNotifications}</h2>
         </div>
         <button className="ghost-button" onClick={handleMarkAllRead} type="button">
-          Mark all read
+          {dictionary.sidebar.markAllRead}
         </button>
       </div>
 
@@ -116,8 +129,8 @@ export function NotificationsPage({
           ))
         ) : (
           <div className="empty-state empty-state-large">
-            <strong>Inbox cleared.</strong>
-            <p>New likes, follows, comments, and favorites will appear here.</p>
+            <strong>{texts.inboxCleared}</strong>
+            <p>{texts.inboxDesc}</p>
           </div>
         )}
 
@@ -125,12 +138,12 @@ export function NotificationsPage({
         {hasMore && <div ref={sentinelRef} style={{ height: '40px' }} />}
         {loadingMore && (
           <div className="empty-state" style={{ marginTop: '12px' }}>
-            Loading more...
+            {texts.loadingMore}
           </div>
         )}
         {!hasMore && notifications.length > 0 && (
           <div className="empty-state" style={{ marginTop: '12px' }}>
-            No more notifications
+            {texts.noMore}
           </div>
         )}
       </div>

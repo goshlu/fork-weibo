@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 
+import { useI18n } from '../../i18n';
 import type { Post } from '../../types/app';
 
 type DraftsPageProps = {
@@ -13,12 +14,15 @@ type DraftsPageProps = {
 };
 
 export function DraftsPage({ busy, draftEdits, drafts, onDeleteDraft, onDraftChange, onPublishDraft, onSaveDraft }: DraftsPageProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.drafts;
+
   return (
     <>
       <div className="toolbar simple-toolbar">
         <div>
-          <p className="section-label">Draft Box</p>
-          <h2>Unpublished content</h2>
+          <p className="section-label">{texts.title}</p>
+          <h2>{texts.subtitle}</h2>
         </div>
       </div>
       <div className="draft-grid">
@@ -26,7 +30,7 @@ export function DraftsPage({ busy, draftEdits, drafts, onDeleteDraft, onDraftCha
           drafts.map((draft) => (
             <article className="draft-card" key={draft.id}>
               <div className="post-meta">
-                <span>Draft</span>
+                <span>{texts.draft}</span>
                 <span>{new Date(draft.updatedAt).toLocaleString()}</span>
               </div>
               <textarea
@@ -36,19 +40,19 @@ export function DraftsPage({ busy, draftEdits, drafts, onDeleteDraft, onDraftCha
               />
               <div className="post-actions">
                 <button disabled={busy === `draft-save:${draft.id}`} onClick={() => onSaveDraft(draft.id)} type="button">
-                  {busy === `draft-save:${draft.id}` ? 'Saving...' : 'Save'}
+                  {busy === `draft-save:${draft.id}` ? texts.saving : texts.save}
                 </button>
                 <button disabled={busy === `draft-publish:${draft.id}`} onClick={() => onPublishDraft(draft.id)} type="button">
-                  {busy === `draft-publish:${draft.id}` ? 'Publishing...' : 'Publish'}
+                  {busy === `draft-publish:${draft.id}` ? texts.publishing : texts.publish}
                 </button>
                 <button disabled={busy === `draft-delete:${draft.id}`} onClick={() => onDeleteDraft(draft.id)} type="button">
-                  {busy === `draft-delete:${draft.id}` ? 'Deleting...' : 'Delete'}
+                  {busy === `draft-delete:${draft.id}` ? texts.deleting : texts.delete}
                 </button>
               </div>
             </article>
           ))
         ) : (
-          <div className="empty-state">No drafts yet.</div>
+          <div className="empty-state">{texts.empty}</div>
         )}
       </div>
     </>

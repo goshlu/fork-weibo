@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { formatTemplate, useI18n } from '../i18n';
 import type { Comment, Post } from '../types/app';
 
 function resolveMediaUrl(path: string): string {
@@ -7,34 +8,34 @@ function resolveMediaUrl(path: string): string {
   return `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'}`.replace(/\/api$/, '') + path;
 }
 
-function formatReason(reason?: string): string | null {
+function formatReason(reason: string | undefined, texts: ReturnType<typeof useI18n>['dictionary']['postCard']): string | null {
   if (!reason) return null;
-  if (reason === 'similar-users') return 'Recommended for similar users';
-  if (reason === 'network') return 'Recommended from your network';
-  if (reason === 'popular') return 'Popular right now';
-  if (reason === 'following') return 'From authors you follow';
-  if (reason === 'hot') return 'Trending in the square';
+  if (reason === 'similar-users') return texts.recommendedSimilarUsers;
+  if (reason === 'network') return texts.recommendedNetwork;
+  if (reason === 'popular') return texts.popularNow;
+  if (reason === 'following') return texts.fromFollowingAuthors;
+  if (reason === 'hot') return texts.trendingSquare;
   return reason;
 }
 
-function authorLabel(post: Post): string {
-  return post.author?.nickname || `Author ${post.authorId.slice(0, 8)}`;
+function authorLabel(post: Post, texts: ReturnType<typeof useI18n>['dictionary']['postCard']): string {
+  return post.author?.nickname || `${texts.authorFallback} ${post.authorId.slice(0, 8)}`;
 }
 
-function authorInitial(post: Post): string {
-  return authorLabel(post).trim().charAt(0).toUpperCase() || 'A';
+function authorInitial(post: Post, texts: ReturnType<typeof useI18n>['dictionary']['postCard']): string {
+  return authorLabel(post, texts).trim().charAt(0).toUpperCase() || 'A';
 }
 
-function commentAuthorLabel(comment: Comment): string {
-  return comment.author?.nickname || `User ${comment.authorId.slice(0, 8)}`;
+function commentAuthorLabel(comment: Comment, texts: ReturnType<typeof useI18n>['dictionary']['postCard']): string {
+  return comment.author?.nickname || `${texts.userFallback} ${comment.authorId.slice(0, 8)}`;
 }
 
 function commentAuthorMeta(comment: Comment): string {
   return comment.author?.username ? `@${comment.author.username}` : `@${comment.authorId.slice(0, 8)}`;
 }
 
-function commentAuthorInitial(comment: Comment): string {
-  return commentAuthorLabel(comment).trim().charAt(0).toUpperCase() || 'U';
+function commentAuthorInitial(comment: Comment, texts: ReturnType<typeof useI18n>['dictionary']['postCard']): string {
+  return commentAuthorLabel(comment, texts).trim().charAt(0).toUpperCase() || 'U';
 }
 
 function buildCommentTree(comments: Comment[]): { roots: Comment[]; childrenByParent: Map<string, Comment[]>; byId: Map<string, Comment> } {
@@ -77,6 +78,8 @@ type PostCardProps = {
 };
 
 export function PostCard(props: PostCardProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.postCard;
   const {
     post,
     liked,
@@ -118,7 +121,7 @@ export function PostCard(props: PostCardProps) {
     }
   }, [commentsOpen, highlightedCommentId, comments]);
 
-  const displayReason = formatReason(post.reason);
+  const displayReason = formatReason(post.reason, texts);
   const displayTime = new Date(post.publishedAt ?? post.updatedAt).toLocaleString();
   const canOpenAuthor = Boolean(onOpenAuthor);
   const commentTree = useMemo(() => buildCommentTree(comments), [comments]);
@@ -134,22 +137,22 @@ export function PostCard(props: PostCardProps) {
             <div className="comment-author">
               <div className="comment-author-avatar">
                 {comment.author?.avatarUrl ? (
-                  <img alt={commentAuthorLabel(comment)} className="comment-author-avatar-image" src={resolveMediaUrl(comment.author.avatarUrl)} />
+                  <img alt={commentAuthorLabel(comment, texts)} className="comment-author-avatar-image" src={resolveMediaUrl(comment.author.avatarUrl)} />
                 ) : (
-                  <span>{commentAuthorInitial(comment)}</span>
+                  <span>{commentAuthorInitial(comment, texts)}</span>
                 )}
               </div>
               <div className="comment-author-copy">
-                <strong>{commentAuthorLabel(comment)}</strong>
+                <strong>{commentAuthorLabel(comment, texts)}</strong>
                 <span>{commentAuthorMeta(comment)}</span>
               </div>
             </div>
             <span>{new Date(comment.createdAt).toLocaleString()}</span>
           </div>
-          {parent ? <span className="comment-replying-to">Replying to {commentAuthorLabel(parent)}</span> : null}
+          {parent ? <span className="comment-replying-to">{formatTemplate(texts.replyingTo, { name: commentAuthorLabel(parent, texts) })}</span> : null}
           <p>{comment.content}</p>
           <button className="comment-reply-button" onClick={() => setReplyTarget(comment)} type="button">
-            Reply
+            {texts.reply}
           </button>
         </div>
         {children.length ? <div className="comment-children">{children.map((child) => renderComment(child, depth + 1))}</div> : null}
@@ -168,18 +171,18 @@ export function PostCard(props: PostCardProps) {
         >
           <div className="post-author-avatar">
             {post.author?.avatarUrl ? (
-              <img alt={authorLabel(post)} className="post-author-avatar-image" src={resolveMediaUrl(post.author.avatarUrl)} />
+              <img alt={authorLabel(post, texts)} className="post-author-avatar-image" src={resolveMediaUrl(post.author.avatarUrl)} />
             ) : (
-              <span>{authorInitial(post)}</span>
+              <span>{authorInitial(post, texts)}</span>
             )}
           </div>
           <div className="post-author-copy">
-            <strong>{authorLabel(post)}</strong>
+            <strong>{authorLabel(post, texts)}</strong>
             <span>{post.author?.username ? `@${post.author.username}` : post.authorId.slice(0, 8)}</span>
           </div>
         </button>
         <div className="post-meta-stack">
-          <span>{post.status === 'published' ? 'Published' : 'Draft'}</span>
+          <span>{post.status === 'published' ? texts.published : texts.draft}</span>
           <span>{displayTime}</span>
         </div>
       </div>
@@ -191,7 +194,7 @@ export function PostCard(props: PostCardProps) {
         <div className="post-image-grid">
           {post.images.map((image, index) => (
             <img
-              alt={`Post image ${index + 1}`}
+              alt={formatTemplate(texts.postImageAlt, { index: index + 1 })}
               className="post-image"
               key={`${image.url}-${index}`}
               loading="lazy"
@@ -203,9 +206,9 @@ export function PostCard(props: PostCardProps) {
 
       {post.stats ? (
         <div className="post-stats-row">
-          <span>{post.stats.likesCount} likes</span>
-          <span>{post.stats.commentsCount} comments</span>
-          <span>{post.stats.favoritesCount} saves</span>
+          <span>{formatTemplate(texts.likesCount, { count: post.stats.likesCount })}</span>
+          <span>{formatTemplate(texts.commentsCount, { count: post.stats.commentsCount })}</span>
+          <span>{formatTemplate(texts.savesCount, { count: post.stats.favoritesCount })}</span>
         </div>
       ) : null}
 
@@ -216,7 +219,7 @@ export function PostCard(props: PostCardProps) {
           onClick={() => onLike(post.id)}
           type="button"
         >
-          {liked ? 'Unlike' : 'Like'}
+          {liked ? texts.unlike : texts.like}
         </button>
         {onFavorite ? (
           <button
@@ -225,7 +228,7 @@ export function PostCard(props: PostCardProps) {
             onClick={() => onFavorite(post.id)}
             type="button"
           >
-            {favorited ? 'Unfavorite' : 'Favorite'}
+            {favorited ? texts.unfavorite : texts.favorite}
           </button>
         ) : null}
         <button
@@ -234,34 +237,34 @@ export function PostCard(props: PostCardProps) {
           onClick={() => onFollow(post.authorId)}
           type="button"
         >
-          {followed ? 'Unfollow' : 'Follow author'}
+          {followed ? texts.unfollow : texts.followAuthor}
         </button>
         {onOpenPost ? (
           <button onClick={() => onOpenPost(post.id)} type="button">
-            View details
+            {texts.viewDetails}
           </button>
         ) : null}
         <button onClick={() => onToggleComments(post.id)} type="button">
-          {commentsOpen ? 'Hide comments' : 'Show comments'}
+          {commentsOpen ? texts.hideComments : texts.showComments}
         </button>
       </div>
       {commentsOpen ? (
         <div className="comments-panel">
           <div className="comment-list">
-            {commentTree.roots.length ? commentTree.roots.map((comment) => renderComment(comment)) : <p className="comment-empty">No comments yet.</p>}
+            {commentTree.roots.length ? commentTree.roots.map((comment) => renderComment(comment)) : <p className="comment-empty">{texts.noComments}</p>}
           </div>
           {replyTarget ? (
             <div className="comment-reply-banner">
-              <span>Replying to {commentAuthorLabel(replyTarget)}</span>
+              <span>{formatTemplate(texts.replyingTo, { name: commentAuthorLabel(replyTarget, texts) })}</span>
               <button className="comment-reply-button" onClick={() => setReplyTarget(null)} type="button">
-                Cancel
+                {texts.cancel}
               </button>
             </div>
           ) : null}
           <div className="comment-composer">
             <input
               onChange={(event) => onCommentDraftChange(post.id, event.target.value)}
-              placeholder={replyTarget ? `Reply to ${commentAuthorLabel(replyTarget)}` : 'Write a comment'}
+              placeholder={replyTarget ? formatTemplate(texts.replyToPlaceholder, { name: commentAuthorLabel(replyTarget, texts) }) : texts.writeComment}
               value={commentDraft}
             />
             <button
@@ -272,7 +275,7 @@ export function PostCard(props: PostCardProps) {
               }}
               type="button"
             >
-              Reply
+              {texts.reply}
             </button>
           </div>
         </div>

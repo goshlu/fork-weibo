@@ -1,8 +1,21 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { I18nProvider } from '../../i18n';
 import { NotificationsPage } from './NotificationsPage';
 import type { Notification } from '../../types/app';
+
+function renderWithEn(ui: ReactElement) {
+  localStorage.setItem('fork_weibo_locale', 'en');
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
+
+function getFilterTabs() {
+  const container = document.querySelector('.filter-tabs');
+  if (!container) throw new Error('filter tabs container not found');
+  return within(container);
+}
 
 // Helper to create mock notification
 function createMockNotification(overrides: Partial<Notification> = {}): Notification {
@@ -50,7 +63,7 @@ describe('NotificationsPage', () => {
 
   describe('rendering', () => {
     it('should render page title and mark all read button', () => {
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[]}
           {...defaultHandlers}
@@ -63,22 +76,23 @@ describe('NotificationsPage', () => {
     });
 
     it('should render filter tabs', () => {
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[]}
           {...defaultHandlers}
         />
       );
 
-      expect(screen.getByRole('button', { name: /全部/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /点赞/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /评论/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /关注/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /收藏/i })).toBeInTheDocument();
+      const tabs = getFilterTabs();
+      expect(tabs.getByRole('button', { name: /^All/ })).toBeInTheDocument();
+      expect(tabs.getByRole('button', { name: /^Likes/ })).toBeInTheDocument();
+      expect(tabs.getByRole('button', { name: /^Comments/ })).toBeInTheDocument();
+      expect(tabs.getByRole('button', { name: /^Follows/ })).toBeInTheDocument();
+      expect(tabs.getByRole('button', { name: /^Favorites/ })).toBeInTheDocument();
     });
 
     it('should render empty state when no notifications', () => {
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[]}
           {...defaultHandlers}
@@ -95,7 +109,7 @@ describe('NotificationsPage', () => {
         createMockNotification({ id: 'notif-2', type: 'comment', message: 'commented on your post' }),
       ];
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={notifications}
           {...defaultHandlers}
@@ -121,16 +135,16 @@ describe('NotificationsPage', () => {
         createMockNotification({ id: 'older-1', createdAt: twoDaysAgo.toISOString() }),
       ];
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={notifications}
           {...defaultHandlers}
         />
       );
 
-      expect(screen.getByText('今天')).toBeInTheDocument();
-      expect(screen.getByText('昨天')).toBeInTheDocument();
-      expect(screen.getByText('更早')).toBeInTheDocument();
+      expect(screen.getByText('Today')).toBeInTheDocument();
+      expect(screen.getByText('Yesterday')).toBeInTheDocument();
+      expect(screen.getByText('Earlier')).toBeInTheDocument();
     });
 
     it('should not show empty groups', () => {
@@ -141,16 +155,16 @@ describe('NotificationsPage', () => {
         createMockNotification({ id: 'today-1', createdAt: today.toISOString() }),
       ];
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={notifications}
           {...defaultHandlers}
         />
       );
 
-      expect(screen.getByText('今天')).toBeInTheDocument();
-      expect(screen.queryByText('昨天')).not.toBeInTheDocument();
-      expect(screen.queryByText('更早')).not.toBeInTheDocument();
+      expect(screen.getByText('Today')).toBeInTheDocument();
+      expect(screen.queryByText('Yesterday')).not.toBeInTheDocument();
+      expect(screen.queryByText('Earlier')).not.toBeInTheDocument();
     });
   });
 
@@ -163,7 +177,7 @@ describe('NotificationsPage', () => {
         createMockNotification({ id: 'notif-3', type: 'follow', isRead: false }),
       ];
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={notifications}
           {...defaultHandlers}
@@ -174,7 +188,7 @@ describe('NotificationsPage', () => {
       expect(screen.getAllByTitle('Mark as read')).toHaveLength(3);
 
       // Click on "点赞" filter
-      await user.click(screen.getByRole('button', { name: /点赞/i }));
+      await user.click(getFilterTabs().getByRole('button', { name: /^Likes/ }));
 
       // Only like notification should be visible
       expect(screen.getAllByTitle('Mark as read')).toHaveLength(1);
@@ -188,7 +202,7 @@ describe('NotificationsPage', () => {
         createMockNotification({ id: 'notif-4', type: 'follow', isRead: false }),
       ];
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={notifications}
           {...defaultHandlers}
@@ -196,11 +210,11 @@ describe('NotificationsPage', () => {
       );
 
       // "全部" tab should show total unread count (3)
-      const allTab = screen.getByRole('button', { name: /全部/i });
+      const allTab = getFilterTabs().getByRole('button', { name: /^All/ });
       expect(allTab.querySelector('.filter-tab-badge')).toHaveTextContent('3');
 
       // "点赞" tab should show like unread count (1)
-      const likeTab = screen.getByRole('button', { name: /点赞/i });
+      const likeTab = getFilterTabs().getByRole('button', { name: /^Likes/ });
       expect(likeTab.querySelector('.filter-tab-badge')).toHaveTextContent('1');
     });
 
@@ -210,14 +224,14 @@ describe('NotificationsPage', () => {
         createMockNotification({ id: 'notif-2', type: 'comment' }),
       ];
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={notifications}
           {...defaultHandlers}
         />
       );
 
-      const allTab = screen.getByRole('button', { name: /全部/i });
+      const allTab = getFilterTabs().getByRole('button', { name: /^All/ });
       expect(allTab).toHaveClass('active');
     });
   });
@@ -227,7 +241,7 @@ describe('NotificationsPage', () => {
       const user = userEvent.setup();
       const onMarkAllRead = vi.fn();
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[createMockNotification()]}
           onMarkAllRead={onMarkAllRead}
@@ -246,7 +260,7 @@ describe('NotificationsPage', () => {
       const onMarkOneRead = vi.fn();
       const notification = createMockNotification({ id: 'notif-1', isRead: false });
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[notification]}
           onMarkAllRead={defaultHandlers.onMarkAllRead}
@@ -263,7 +277,7 @@ describe('NotificationsPage', () => {
     it('should not show mark read button for read notifications', () => {
       const notification = createMockNotification({ id: 'notif-1', isRead: true });
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[notification]}
           {...defaultHandlers}
@@ -280,7 +294,7 @@ describe('NotificationsPage', () => {
       const onOpenNotification = vi.fn();
       const notification = createMockNotification({ id: 'notif-1', message: 'liked your post' });
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[notification]}
           onMarkAllRead={defaultHandlers.onMarkAllRead}
@@ -302,7 +316,7 @@ describe('NotificationsPage', () => {
 
   describe('infinite scroll', () => {
     it('should show loading indicator when loading more', () => {
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[createMockNotification()]}
           {...defaultHandlers}
@@ -315,7 +329,7 @@ describe('NotificationsPage', () => {
     });
 
     it('should show "no more" message when all loaded', () => {
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[createMockNotification()]}
           {...defaultHandlers}
@@ -328,7 +342,7 @@ describe('NotificationsPage', () => {
     });
 
     it('should not show "no more" message when no notifications', () => {
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[]}
           {...defaultHandlers}
@@ -341,7 +355,7 @@ describe('NotificationsPage', () => {
     });
 
     it('should setup intersection observer for infinite scroll', () => {
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[createMockNotification()]}
           {...defaultHandlers}
@@ -366,7 +380,7 @@ describe('NotificationsPage', () => {
         createMockNotification({ id: 'notif-3', type: 'like', isRead: true, message: 'liked your post' }),
       ];
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={notifications}
           onMarkAllRead={defaultHandlers.onMarkAllRead}
@@ -382,7 +396,7 @@ describe('NotificationsPage', () => {
       expect(screen.getByText(/Test User commented on your post/i)).toBeInTheDocument();
 
       // Filter to show only likes
-      await user.click(screen.getByRole('button', { name: /点赞/i }));
+      await user.click(getFilterTabs().getByRole('button', { name: /^Likes/ }));
 
       // Only like notifications should be visible (still 2 like notifications)
       const likeMessagesAfterFilter = screen.getAllByText(/Test User liked your post/i);
@@ -397,7 +411,7 @@ describe('NotificationsPage', () => {
     });
 
     it('should update filter badges when notifications change', () => {
-      const { rerender } = render(
+      const { rerender } = renderWithEn(
         <NotificationsPage
           notifications={[
             createMockNotification({ id: 'notif-1', type: 'like', isRead: false }),
@@ -407,18 +421,20 @@ describe('NotificationsPage', () => {
       );
 
       // Initial badge count
-      const likeTab = screen.getByRole('button', { name: /点赞/i });
+      const likeTab = getFilterTabs().getByRole('button', { name: /^Likes/ });
       expect(likeTab.querySelector('.filter-tab-badge')).toHaveTextContent('1');
 
       // Update with more unread notifications
       rerender(
-        <NotificationsPage
-          notifications={[
-            createMockNotification({ id: 'notif-1', type: 'like', isRead: false }),
-            createMockNotification({ id: 'notif-2', type: 'like', isRead: false }),
-          ]}
-          {...defaultHandlers}
-        />
+        <I18nProvider>
+          <NotificationsPage
+            notifications={[
+              createMockNotification({ id: 'notif-1', type: 'like', isRead: false }),
+              createMockNotification({ id: 'notif-2', type: 'like', isRead: false }),
+            ]}
+            {...defaultHandlers}
+          />
+        </I18nProvider>
       );
 
       // Badge should update
@@ -433,7 +449,7 @@ describe('NotificationsPage', () => {
         createMockNotification({ id: 'notif-4', type: 'favorite', isRead: false }),
       ];
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={notifications}
           {...defaultHandlers}
@@ -441,16 +457,17 @@ describe('NotificationsPage', () => {
       );
 
       // All type tabs should have badges
-      expect(screen.getByRole('button', { name: /点赞/i }).querySelector('.filter-tab-badge')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /评论/i }).querySelector('.filter-tab-badge')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /关注/i }).querySelector('.filter-tab-badge')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /收藏/i }).querySelector('.filter-tab-badge')).toBeInTheDocument();
+      const tabs = getFilterTabs();
+      expect(tabs.getByRole('button', { name: /^Likes/ }).querySelector('.filter-tab-badge')).toBeInTheDocument();
+      expect(tabs.getByRole('button', { name: /^Comments/ }).querySelector('.filter-tab-badge')).toBeInTheDocument();
+      expect(tabs.getByRole('button', { name: /^Follows/ }).querySelector('.filter-tab-badge')).toBeInTheDocument();
+      expect(tabs.getByRole('button', { name: /^Favorites/ }).querySelector('.filter-tab-badge')).toBeInTheDocument();
     });
   });
 
   describe('accessibility', () => {
     it('should have proper button types', () => {
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[createMockNotification()]}
           {...defaultHandlers}
@@ -466,14 +483,14 @@ describe('NotificationsPage', () => {
     it('should have accessible unread indicators', () => {
       const notification = createMockNotification({ isRead: false });
 
-      render(
+      renderWithEn(
         <NotificationsPage
           notifications={[notification]}
           {...defaultHandlers}
         />
       );
 
-      expect(screen.getByLabelText('未读')).toBeInTheDocument();
+      expect(screen.getByLabelText('Unread')).toBeInTheDocument();
     });
   });
 });

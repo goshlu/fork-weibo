@@ -1,4 +1,5 @@
 import { PostCard } from '../PostCard';
+import { useI18n } from '../../i18n';
 import type { Comment, Post } from '../../types/app';
 
 type PostPageProps = {
@@ -21,6 +22,8 @@ type PostPageProps = {
 };
 
 export function PostPage(props: PostPageProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.postPage;
   const {
     busy,
     commentDraft,
@@ -39,14 +42,14 @@ export function PostPage(props: PostPageProps) {
     onToggleComments,
   } = props;
 
-  if (!post) return <div className="empty-state">Post not found.</div>;
+  if (!post) return <div className="empty-state">{texts.notFound}</div>;
 
   return (
     <>
       <div className="toolbar simple-toolbar page-toolbar user-page-toolbar">
         <div>
-          <p className="section-label">Post Detail</p>
-          <h2>{post.author?.nickname ?? 'Post'}</h2>
+          <p className="section-label">{texts.detail}</p>
+          <h2>{post.author?.nickname ?? texts.fallbackTitle}</h2>
         </div>
       </div>
       <div className="post-list">

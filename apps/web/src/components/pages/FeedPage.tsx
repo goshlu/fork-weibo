@@ -1,8 +1,9 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { PostCard } from '../PostCard';
-import { feedTitles, type Comment, type ComposerState, type FeedMode, type Post } from '../../types/app';
+import { formatTemplate, useI18n } from '../../i18n';
+import { type Comment, type ComposerState, type FeedMode, type Post } from '../../types/app';
 
 type FeedPageProps = {
   busy: string;
@@ -51,6 +52,9 @@ function LocalImagePreview({ file, alt }: LocalImagePreviewProps) {
 }
 
 export function FeedPage(props: FeedPageProps) {
+  const { dictionary } = useI18n();
+  const feedTitles = dictionary.feedTitles;
+  const texts = dictionary.feedPage;
   const {
     busy,
     composer,
@@ -79,7 +83,7 @@ export function FeedPage(props: FeedPageProps) {
     <>
       <div className="toolbar">
         <div>
-          <p className="section-label">Content Square</p>
+          <p className="section-label">{texts.contentSquare}</p>
           <h2>{feedTitles[feedMode]}</h2>
         </div>
         <div className="segmented-control">
@@ -99,7 +103,7 @@ export function FeedPage(props: FeedPageProps) {
         }}
       >
         <label className="composer-upload" htmlFor="composer-images">
-          <span>Add images ({composer.images.length}/9)</span>
+          <span>{texts.addImages} ({composer.images.length}/9)</span>
           <input
             accept="image/*"
             id="composer-images"
@@ -118,14 +122,14 @@ export function FeedPage(props: FeedPageProps) {
         <textarea
           value={composer.content}
           onChange={(event) => onComposerChange((prev) => ({ ...prev, content: event.target.value }))}
-          placeholder="Share something new. Try hashtags like #AI or #Travel"
+          placeholder={texts.sharePlaceholder}
           rows={5}
         />
         {composer.images.length ? (
           <div className="composer-preview-grid">
             {composer.images.map((image, index) => (
               <div className="composer-preview-card" key={`${image.name}-${image.lastModified}-${index}`}>
-                <LocalImagePreview alt={image.name || `Upload ${index + 1}`} file={image} />
+                <LocalImagePreview alt={image.name || formatTemplate(texts.uploadLabel + ' {index}', { index: index + 1 })} file={image} />
                 <button
                   className="ghost-button composer-preview-remove"
                   onClick={() =>
@@ -136,7 +140,7 @@ export function FeedPage(props: FeedPageProps) {
                   }
                   type="button"
                 >
-                  Remove
+                  {texts.remove}
                 </button>
               </div>
             ))}
@@ -147,11 +151,11 @@ export function FeedPage(props: FeedPageProps) {
             value={composer.status}
             onChange={(event) => onComposerChange((prev) => ({ ...prev, status: event.target.value as 'draft' | 'published' }))}
           >
-            <option value="published">Publish now</option>
-            <option value="draft">Save draft</option>
+            <option value="published">{texts.publishNow}</option>
+            <option value="draft">{texts.saveDraft}</option>
           </select>
           <button className="primary-button" disabled={busy === 'composer'} type="submit">
-            {busy === 'composer' ? 'Submitting...' : 'Submit post'}
+            {busy === 'composer' ? texts.submitting : texts.submitPost}
           </button>
         </div>
       </form>
@@ -181,7 +185,7 @@ export function FeedPage(props: FeedPageProps) {
             />
           ))
         ) : (
-          <div className="empty-state">No posts in this feed yet.</div>
+          <div className="empty-state">{texts.empty}</div>
         )}
       </div>
     </>

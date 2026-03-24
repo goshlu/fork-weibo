@@ -1,4 +1,5 @@
 import type { UserProfile } from '../../types/app';
+import { useI18n } from '../../i18n';
 
 type ProfileHeaderProps = {
   avatarPreview: string;
@@ -7,12 +8,16 @@ type ProfileHeaderProps = {
   subtitle?: string;
 };
 
-export function ProfileHeader({ avatarPreview, heading = 'Profile', profile, subtitle }: ProfileHeaderProps) {
+export function ProfileHeader({ avatarPreview, heading, profile, subtitle }: ProfileHeaderProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.profile;
+  const resolvedHeading = heading ?? texts.profile;
+
   return (
     <>
       <div className="toolbar simple-toolbar">
         <div>
-          <p className="section-label">{heading}</p>
+          <p className="section-label">{resolvedHeading}</p>
           <h2>{profile.nickname}</h2>
         </div>
       </div>
@@ -28,14 +33,14 @@ export function ProfileHeader({ avatarPreview, heading = 'Profile', profile, sub
           </div>
           <div className="profile-main">
             <strong>@{profile.username}</strong>
-            <p>{(subtitle ?? profile.bio) || 'No bio yet.'}</p>
+            <p>{(subtitle ?? profile.bio) || texts.noBio}</p>
           </div>
         </div>
         <div className="profile-stats">
-          <div><span>Followers</span><strong>{profile.stats.followers}</strong></div>
-          <div><span>Following</span><strong>{profile.stats.following}</strong></div>
-          <div><span>Posts</span><strong>{profile.stats.posts}</strong></div>
-          <div><span>Likes</span><strong>{profile.stats.likesReceived}</strong></div>
+          <div><span>{texts.followers}</span><strong>{profile.stats.followers}</strong></div>
+          <div><span>{texts.following}</span><strong>{profile.stats.following}</strong></div>
+          <div><span>{texts.posts}</span><strong>{profile.stats.posts}</strong></div>
+          <div><span>{texts.likes}</span><strong>{profile.stats.likesReceived}</strong></div>
         </div>
       </div>
     </>

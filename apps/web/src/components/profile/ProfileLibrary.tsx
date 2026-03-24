@@ -1,6 +1,7 @@
-﻿import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 
 import { PostCard } from '../PostCard';
+import { useI18n } from '../../i18n';
 import type { Comment, FavoriteItem, Post, ProfileTab } from '../../types/app';
 
 type ProfileLibraryProps = {
@@ -30,6 +31,8 @@ type ProfileLibraryProps = {
 const DEFAULT_FOLDER = 'default';
 
 export function ProfileLibrary(props: ProfileLibraryProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.profile;
   const {
     activeTab,
     busy,
@@ -99,15 +102,15 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
     <div className="profile-section">
       <div className="inline-head library-head">
         <div>
-          <h3>Content Library</h3>
-          <p className="library-subtitle">Switch folders to change what Favorite means across the app.</p>
+          <h3>{texts.libraryTitle}</h3>
+          <p className="library-subtitle">{texts.librarySubtitle}</p>
         </div>
         <div className="segmented-inline">
           <button className={activeTab === 'published' ? 'active' : ''} onClick={() => handleTabChange('published')} type="button">
-            Published {posts.length}
+            {texts.published} {posts.length}
           </button>
           <button className={activeTab === 'favorites' ? 'active' : ''} onClick={() => handleTabChange('favorites')} type="button">
-            Favorites {favorites.length}
+            {texts.favorites} {favorites.length}
           </button>
         </div>
       </div>
@@ -129,10 +132,10 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
         <div className="folder-create-row">
           <input
             onChange={(event) => setNewFolderName(event.target.value)}
-            placeholder="New folder name"
+            placeholder={texts.newFolderName}
             value={newFolderName}
           />
-          <button className="ghost-button" onClick={handleCreateFolder} type="button">Create</button>
+          <button className="ghost-button" onClick={handleCreateFolder} type="button">{texts.create}</button>
         </div>
       </div>
 
@@ -148,13 +151,13 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
                 <p>{item.post.content}</p>
                 <div className="post-actions">
                   <button className="active-action" disabled={busy === `favorite:${item.postId}`} onClick={() => onFavorite(item.postId)} type="button">
-                    Remove from folder
+                    {texts.removeFromFolder}
                   </button>
                 </div>
               </article>
             ))
           ) : (
-            <div className="empty-state">No favorites in this folder yet.</div>
+            <div className="empty-state">{texts.folderEmpty}</div>
           )}
         </div>
       ) : (
@@ -181,7 +184,7 @@ export function ProfileLibrary(props: ProfileLibraryProps) {
               />
             ))
           ) : (
-            <div className="empty-state">No published posts yet.</div>
+            <div className="empty-state">{texts.publishedEmpty}</div>
           )}
         </div>
       )}

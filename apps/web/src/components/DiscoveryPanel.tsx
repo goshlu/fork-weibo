@@ -1,4 +1,5 @@
-﻿import { PostCard } from './PostCard';
+import { PostCard } from './PostCard';
+import { useI18n } from '../i18n';
 import type { Channel, Comment, Post, SearchTrend, Topic } from '../types/app';
 
 type DiscoveryPanelProps = {
@@ -27,6 +28,8 @@ type DiscoveryPanelProps = {
 };
 
 export function DiscoveryPanel(props: DiscoveryPanelProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.discovery;
   const {
     busy,
     channels,
@@ -54,21 +57,21 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
   return (
     <section className="panel right-panel">
       <div className="search-box">
-        <p className="section-label">Search and Discover</p>
+        <p className="section-label">{texts.title}</p>
         <div className="search-row">
           <input
             value={searchInput}
             onChange={(event) => onSearchInputChange(event.target.value)}
-            placeholder="Search keywords like ai or travel"
+            placeholder={texts.placeholder}
           />
           <button className="primary-button" onClick={() => onSearchKeywordChange(searchInput.trim())} type="button">
-            Search
+            {texts.search}
           </button>
         </div>
       </div>
 
       <div className="insight-block">
-        <h3>Search Results</h3>
+        <h3>{texts.results}</h3>
         <div className="compact-list">
           {searchResults.length ? (
             searchResults.map((post) => (
@@ -92,13 +95,13 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
               />
             ))
           ) : (
-            <p>Run a keyword search to populate this panel.</p>
+            <p>{texts.resultsEmpty}</p>
           )}
         </div>
       </div>
 
       <div className="insight-block">
-        <h3>Trending Topics</h3>
+        <h3>{texts.topics}</h3>
         <div className="tag-list">
           {topics.map((item) => (
             <button className="tag" key={item.topic} onClick={() => onSearchKeywordChange(item.topic)} type="button">
@@ -109,7 +112,7 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
       </div>
 
       <div className="insight-block">
-        <h3>Hot Searches</h3>
+        <h3>{texts.hotSearches}</h3>
         <div className="metric-list">
           {searchTrends.map((item) => (
             <button className="metric-row" key={item.keyword} onClick={() => onSearchKeywordChange(item.keyword)} type="button">
@@ -121,7 +124,7 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
       </div>
 
       <div className="insight-block">
-        <h3>Channel Mix</h3>
+        <h3>{texts.channelMix}</h3>
         <div className="metric-list">
           {channels.map((item) => (
             <div className="metric-row static" key={item.channel}>

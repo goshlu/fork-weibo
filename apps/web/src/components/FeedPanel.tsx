@@ -1,9 +1,9 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { PostCard } from './PostCard';
+import { useI18n } from '../i18n';
 import {
-  feedTitles,
   type Comment,
   type ComposerState,
   type FeedMode,
@@ -72,6 +72,9 @@ export function FeedPanel({
   onCommentDraftChange,
   onSubmitComment,
 }: FeedPanelProps) {
+  const { dictionary } = useI18n();
+  const feedTitles = dictionary.feedTitles;
+
   return (
     <section className="panel center-panel">
       <div className="toolbar">

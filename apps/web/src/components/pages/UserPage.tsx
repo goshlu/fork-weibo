@@ -1,5 +1,6 @@
-﻿import { ProfileHeader } from '../profile/ProfileHeader';
+import { ProfileHeader } from '../profile/ProfileHeader';
 import { PostCard } from '../PostCard';
+import { formatTemplate, useI18n } from '../../i18n';
 import type { Comment, Post, UserProfile } from '../../types/app';
 
 type UserPageProps = {
@@ -29,6 +30,8 @@ function resolveAvatarUrl(path: string | null): string {
 }
 
 export function UserPage(props: UserPageProps) {
+  const { dictionary } = useI18n();
+  const texts = dictionary.userPage;
   const {
     busy,
     commentDrafts,
@@ -48,20 +51,20 @@ export function UserPage(props: UserPageProps) {
     onToggleComments,
   } = props;
 
-  if (!profile) return <div className="empty-state">User not found.</div>;
+  if (!profile) return <div className="empty-state">{texts.notFound}</div>;
 
   return (
     <>
       <ProfileHeader
         avatarPreview={resolveAvatarUrl(profile.avatarUrl)}
-        heading="User"
+        heading={dictionary.profile.user}
         profile={profile}
-        subtitle={profile.bio || 'This user has not added a bio yet.'}
+        subtitle={profile.bio || texts.userNoBio}
       />
       <div className="toolbar simple-toolbar page-toolbar user-page-toolbar">
         <div>
-          <p className="section-label">Public Posts</p>
-          <h2>{posts.length ? `${posts.length} posts` : 'No posts yet'}</h2>
+          <p className="section-label">{texts.publicPosts}</p>
+          <h2>{posts.length ? formatTemplate(texts.postsCount, { count: posts.length }) : texts.noPostsYet}</h2>
         </div>
         <button
           className={followingAuthorIds[profile.id] ? 'ghost-button active-action' : 'ghost-button'}
@@ -69,7 +72,7 @@ export function UserPage(props: UserPageProps) {
           onClick={() => onFollow(profile.id)}
           type="button"
         >
-          {followingAuthorIds[profile.id] ? 'Following' : 'Follow'}
+          {followingAuthorIds[profile.id] ? texts.following : texts.follow}
         </button>
       </div>
       <div className="post-list">
@@ -95,7 +98,7 @@ export function UserPage(props: UserPageProps) {
             />
           ))
         ) : (
-          <div className="empty-state">This user has not published anything yet.</div>
+          <div className="empty-state">{texts.emptyPublished}</div>
         )}
       </div>
     </>
