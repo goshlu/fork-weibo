@@ -118,11 +118,19 @@ button {
   flex-shrink: 0;
   opacity: 0.8;
 }
-.sidebar-hero h1 {
-  font-size: clamp(1.8rem, 3.4vw, 3.1rem);
-  line-height: 0.92;
-  letter-spacing: -0.05em;
-  margin-bottom: 14px;
+.sidebar-hero-title {
+  font-size: clamp(2rem, 7vw, 2.8rem);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.sidebar-hero-description {
+  margin: 0;
+  color: rgba(22, 17, 15, 0.7);
+  line-height: 1.55;
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -1209,6 +1217,14 @@ textarea {
 .search-row input {
   margin-top: 0;
   min-width: 0;
+  flex: 1 1 auto;
+  width: auto;
+}
+.search-row .primary-button {
+  flex: 0 0 auto;
+  min-width: 96px;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
 }
 .metric-row.static {
   cursor: default;
@@ -1323,16 +1339,14 @@ textarea {
 /* sidebar overflow safeguards */
 .shell {
   width: min(1820px, 100%);
-  grid-template-columns: minmax(232px, 272px) minmax(0, 1fr) minmax(300px, 380px);
 }
 .sidebar-hero,
 .sidebar-card {
   width: 100%;
   max-width: 100%;
 }
-.sidebar-hero h1 {
-  font-size: clamp(1.55rem, 2.5vw, 2.85rem);
-  line-height: 0.96;
+.sidebar-panel {
+  overflow-x: hidden;
 }
 .eyebrow,
 .section-label {

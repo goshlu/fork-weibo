@@ -586,6 +586,25 @@ describe('useDashboard - notification actions', () => {
   });
 
   describe('notification state management', () => {
+    it('should auto clear message after timeout', async () => {
+      vi.useFakeTimers();
+
+      const { result } = renderHook(() => useDashboard(), { wrapper: createWrapper() });
+
+      await act(async () => {
+        await result.current.actions.markNotificationsRead();
+      });
+
+      expect(result.current.state.message).toBe('Log in before posting.');
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+
+      expect(result.current.state.message).toBe('');
+      vi.useRealTimers();
+    });
+
     it('should clear notifications on logout', async () => {
       vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([createMockNotification()]));
 

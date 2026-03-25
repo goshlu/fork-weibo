@@ -133,6 +133,7 @@ const SEARCH_PAGE_SIZE = 8;
 const NOTIFICATIONS_PAGE_SIZE = 20;
 const NOTIFICATION_CACHE_LIMIT = 200;
 const NOTIFICATION_RECONNECT_DELAYS = [1000, 2000, 5000];
+const MESSAGE_AUTO_DISMISS_MS = 3000;
 
 function readStoredUser(): User | null {
   if (typeof window === 'undefined') return null;
@@ -357,6 +358,20 @@ export function useDashboard(): DashboardReturn {
       scheduleNotificationReconnect(activeToken);
     });
   }
+
+  useEffect(() => {
+    if (!message || typeof window === 'undefined') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setMessage('');
+    }, MESSAGE_AUTO_DISMISS_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [message]);
 
   useEffect(() => {
     void loadDiscovery();

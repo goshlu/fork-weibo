@@ -81,11 +81,11 @@ export function LeftSidebar(props: LeftSidebarProps) {
       {/* Brand Hero */}
       <div className="relative p-6 rounded-3xl overflow-hidden bg-gradient-to-br from-[rgba(203,106,67,0.18)] to-[rgba(255,255,255,0.56)] border border-[rgba(22,17,15,0.06)]">
         <div className="absolute -top-5 -right-5 w-24 h-24 rounded-full bg-gradient-to-br from-[rgba(203,106,67,0.15)] to-[rgba(164,69,43,0.08)] pointer-events-none" />
-        <p className="text-xs tracking-widest uppercase text-[#9b5d3e] mb-2.5">fork-weibo</p>
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight leading-tight mb-3.5">{sidebar.title}</h1>
-        <p className="text-[rgba(22,17,15,0.7)] leading-relaxed">{sidebar.description}</p>
+        <p className="text-xs tracking-widest uppercase text-[#9b5d3e] mb-2.5">社交网站</p>
+        <p className="sidebar-hero-title">{sidebar.title}</p>
+        <p className="sidebar-hero-description">{sidebar.description}</p>
         {/* Language Switch */}
-        <div className="inline-flex items-center gap-2.5 mt-3 px-2.5 py-1 pr-2.5 rounded-full bg-[rgba(255,255,255,0.4)] border border-[rgba(22,17,15,0.04)]">
+        <div className="inline-flex flex-wrap items-center gap-2.5 mt-3 px-2.5 py-1 pr-2.5 rounded-full bg-[rgba(255,255,255,0.4)] border border-[rgba(22,17,15,0.04)]">
           <Globe size={14} className="text-[#9b5d3e] opacity-80 shrink-0" />
           <button
             className={`px-3 py-1 text-sm rounded-full transition-colors ${locale === 'zh' ? 'bg-[#1d5d68] text-[#f5f0e8]' : 'bg-transparent text-inherit'}`}
@@ -106,9 +106,9 @@ export function LeftSidebar(props: LeftSidebarProps) {
 
       {/* Navigation Card */}
       <div className="p-4.5 rounded-3xl bg-[rgba(255,255,255,0.62)] border border-[rgba(22,17,15,0.08)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-        <div className="flex justify-between items-center gap-3 mb-3.5">
+        <div className="flex flex-wrap justify-between items-start gap-2.5 mb-3.5">
           <p className="text-xs tracking-widest uppercase text-[#9b5d3e]">{sidebar.workspace}</p>
-          <span className="text-xs px-2.5 py-1.5 rounded-full whitespace-nowrap shrink-0 bg-[rgba(29,93,104,0.12)] text-[#1d5d68]">
+          <span className="text-xs px-2.5 py-1.5 rounded-full shrink-0 bg-[rgba(29,93,104,0.12)] text-[#1d5d68]">
             {formatTemplate(sidebar.unread, { count: unreadCount })}
           </span>
         </div>
@@ -145,9 +145,9 @@ export function LeftSidebar(props: LeftSidebarProps) {
       {/* Auth Card */}
       {!currentUser ? (
         <div className="p-4.5 rounded-3xl bg-[rgba(255,255,255,0.62)] border border-[rgba(22,17,15,0.08)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-          <div className="flex justify-between items-center gap-3 mb-3.5">
+          <div className="flex flex-wrap justify-between items-start gap-2.5 mb-3.5">
             <p className="text-xs tracking-widest uppercase text-[#9b5d3e]">{sidebar.access}</p>
-            <span className="text-xs px-2.5 py-1.5 rounded-full whitespace-nowrap shrink-0 bg-[rgba(22,17,15,0.06)] text-[rgba(22,17,15,0.58)]">{sidebar.guestMode}</span>
+            <span className="text-xs px-2.5 py-1.5 rounded-full shrink-0 bg-[rgba(22,17,15,0.06)] text-[rgba(22,17,15,0.58)]">{sidebar.guestMode}</span>
           </div>
 
           <div className="grid grid-cols-2 gap-0 mb-4">
@@ -222,9 +222,9 @@ export function LeftSidebar(props: LeftSidebarProps) {
       ) : (
         /* Session Card */
         <div className="p-4.5 rounded-3xl bg-[rgba(255,255,255,0.62)] border border-[rgba(22,17,15,0.08)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-          <div className="flex justify-between items-center gap-3 mb-3.5">
+          <div className="flex flex-wrap justify-between items-start gap-2.5 mb-3.5">
             <p className="text-xs tracking-widest uppercase text-[#9b5d3e]">{sidebar.session}</p>
-            <span className="inline-flex items-center text-xs px-2.5 py-1.5 rounded-full whitespace-nowrap shrink-0 bg-[rgba(90,150,96,0.14)] text-[#2f6a35]">
+            <span className="inline-flex items-center text-xs px-2.5 py-1.5 rounded-full shrink-0 bg-[rgba(90,150,96,0.14)] text-[#2f6a35]">
               <span className="w-2 h-2 rounded-full bg-[#5a9660] mr-1.5 animate-pulse" />
               {sidebar.online}
             </span>
@@ -255,18 +255,18 @@ export function LeftSidebar(props: LeftSidebarProps) {
 
       {/* Notifications Card */}
       <div className="p-4.5 rounded-3xl bg-[rgba(255,255,255,0.62)] border border-[rgba(22,17,15,0.08)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-        <div className="flex justify-between items-start gap-3 mb-3.5">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-2.5 mb-3.5">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-[rgba(29,93,104,0.12)] to-[rgba(29,93,104,0.06)]">
               <Bell size={16} className="text-[#1d5d68]" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs tracking-widest uppercase text-[#9b5d3e]">{sidebar.notifications}</p>
-              <h3 className="text-base font-semibold mt-0.5">{sidebar.preview}</h3>
+              <h3 className="text-base font-semibold mt-0.5 whitespace-nowrap">{sidebar.preview}</h3>
             </div>
           </div>
           <button
-            className="flex items-center gap-1.5 py-2 px-3 text-sm rounded-full border border-[rgba(22,17,15,0.1)] bg-[rgba(255,255,255,0.65)] hover:bg-[rgba(255,255,255,0.85)] transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-sm rounded-full border border-[rgba(22,17,15,0.1)] bg-[rgba(255,255,255,0.65)] hover:bg-[rgba(255,255,255,0.85)] transition-colors"
             onClick={onMarkNotificationsRead}
             type="button"
           >
@@ -301,16 +301,16 @@ export function LeftSidebar(props: LeftSidebarProps) {
                     </div>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-2 text-sm min-w-0">
                       <span className="flex items-center shrink-0">
                         {notificationTypeIcon[item.type] || <Mail size={14} className="text-[#1d5d68]" />}
                       </span>
-                      <strong className="capitalize truncate">{notificationTypeLabel(item, dictionary)}</strong>
+                      <strong className="capitalize truncate max-w-[40%]">{notificationTypeLabel(item, dictionary)}</strong>
                       <span className="text-[#1d5d68] font-medium truncate">{notificationActionLabel(item, sidebar)}</span>
                     </div>
-                    <div className="mt-1 text-sm">
-                      <strong className="truncate">{notificationActorLabel(item, dictionary)}</strong>
-                      <span className="text-[rgba(22,17,15,0.58)] ml-1">
+                    <div className="mt-1 text-sm min-w-0">
+                      <strong className="block truncate">{notificationActorLabel(item, dictionary)}</strong>
+                      <span className="block text-[rgba(22,17,15,0.58)] truncate">
                         {notificationActorHandle(item)} · {formatNotificationTime(item.createdAt, dictionary, locale)}
                       </span>
                     </div>
