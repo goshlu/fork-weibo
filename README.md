@@ -28,6 +28,7 @@ packages/
 - `apps/api/seed/*.json`：示例/初始化数据（纳入版本管理）
 - `apps/api/data/*.json`：运行时数据（已在 `.gitignore` 中忽略）
 - API 启动时会在 `apps/api/data` 缺失对应文件时，自动从 `apps/api/seed` 拷贝一次
+- API 启动时会尝试将旧目录 `apps/api/apps/api/uploads` 的历史图片迁移到 `apps/api/uploads`
 
 ## API 缓存与限流
 

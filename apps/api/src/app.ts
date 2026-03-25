@@ -1,7 +1,6 @@
 import type { Dirent } from 'node:fs';
-import { access, copyFile, mkdir, readdir } from 'node:fs/promises';
+import { access, copyFile, cp, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
@@ -33,26 +32,13 @@ import { UserService } from './modules/users/user.service.js';
 import { authPlugin } from './plugins/auth.js';
 import { errorPlugin } from './plugins/errors.js';
 import { securityPlugin } from './plugins/security.js';
+import {
+  appRoot,
+  resolveLegacyStorageDir,
+  resolveStorageDir,
+} from './utils/storage-paths.js';
 
-const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const workspaceRoot = path.resolve(appRoot, '..', '..');
 const seedRoot = path.resolve(appRoot, 'seed');
-
-function resolveStorageDir(configuredDir: string): string {
-  if (path.isAbsolute(configuredDir)) {
-    return configuredDir;
-  }
-
-  const normalized = configuredDir
-    .replace(/\\/g, '/')
-    .replace(/^\.\/+/, '');
-
-  if (normalized === 'apps/api' || normalized.startsWith('apps/api/')) {
-    return path.resolve(workspaceRoot, normalized);
-  }
-
-  return path.resolve(appRoot, normalized);
-}
 
 async function bootstrapDataFromSeed(dataRoot: string): Promise<void> {
   let entries: Dirent[];
@@ -88,6 +74,33 @@ async function bootstrapDataFromSeed(dataRoot: string): Promise<void> {
   }
 }
 
+async function migrateLegacyUploads(uploadRoot: string): Promise<void> {
+  const legacyUploadRoot = resolveLegacyStorageDir(env.UPLOAD_DIR);
+  if (!legacyUploadRoot) {
+    return;
+  }
+
+  if (path.resolve(legacyUploadRoot) === path.resolve(uploadRoot)) {
+    return;
+  }
+
+  try {
+    await access(legacyUploadRoot);
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError.code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  await cp(legacyUploadRoot, uploadRoot, {
+    recursive: true,
+    force: false,
+    errorOnExist: false,
+  });
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: true,
@@ -104,6 +117,7 @@ export async function buildApp() {
 
   await mkdir(uploadRoot, { recursive: true });
   await mkdir(dataRoot, { recursive: true });
+  await migrateLegacyUploads(uploadRoot);
   await bootstrapDataFromSeed(dataRoot);
 
   await app.register(cors, {

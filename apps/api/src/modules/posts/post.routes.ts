@@ -8,9 +8,12 @@ import type { MultipartFile } from '@fastify/multipart';
 
 import { env } from '../../config/env.js';
 import { toErrorResponse } from '../../utils/http.js';
+import { resolveStorageDir } from '../../utils/storage-paths.js';
 import { createPostSchema, listPostsQuerySchema, updatePostSchema } from './post.schemas.js';
 import type { PostService } from './post.service.js';
 import type { PostImage } from './post.types.js';
+
+const uploadRoot = resolveStorageDir(env.UPLOAD_DIR);
 
 async function saveUploadedImages(
   parts: AsyncIterableIterator<MultipartFile>,
@@ -29,7 +32,7 @@ async function saveUploadedImages(
     }
 
     const extension = path.extname(part.filename || '').toLowerCase() || '.bin';
-    const uploadDir = path.join(process.cwd(), env.UPLOAD_DIR, 'posts', postOwnerId);
+    const uploadDir = path.join(uploadRoot, 'posts', postOwnerId);
     await mkdir(uploadDir, { recursive: true });
     const fileName = `post-${Date.now()}-${index}${extension}`;
     const destination = path.join(uploadDir, fileName);

@@ -7,8 +7,11 @@ import type { FastifyInstance } from 'fastify';
 
 import { env } from '../../config/env.js';
 import { toErrorResponse } from '../../utils/http.js';
+import { resolveStorageDir } from '../../utils/storage-paths.js';
 import { loginSchema, registerSchema, updateUserSchema } from './user.schemas.js';
 import type { UserService } from './user.service.js';
+
+const uploadRoot = resolveStorageDir(env.UPLOAD_DIR);
 
 export async function registerUserRoutes(
   app: FastifyInstance,
@@ -71,7 +74,7 @@ export async function registerUserRoutes(
     }
 
     const extension = path.extname(file.filename || '').toLowerCase() || '.bin';
-    const uploadDir = path.join(process.cwd(), env.UPLOAD_DIR, request.user.userId);
+    const uploadDir = path.join(uploadRoot, request.user.userId);
     await mkdir(uploadDir, { recursive: true });
     const fileName = `avatar-${Date.now()}${extension}`;
     const destination = path.join(uploadDir, fileName);
