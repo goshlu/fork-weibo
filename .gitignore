@@ -12,6 +12,6 @@ pnpm-lock.yaml
 .vscode
 .pnpm-store
 apps/api/uploads/*
-apps/api/data/users.json
+apps/api/data/*.json
 !apps/api/uploads/.gitkeep
 apps/web/test-results/

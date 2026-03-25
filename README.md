@@ -23,9 +23,22 @@ packages/
   typescript-config/  共享 TypeScript 配置
 ```
 
+## API 数据目录约定
+
+- `apps/api/seed/*.json`：示例/初始化数据（纳入版本管理）
+- `apps/api/data/*.json`：运行时数据（已在 `.gitignore` 中忽略）
+- API 启动时会在 `apps/api/data` 缺失对应文件时，自动从 `apps/api/seed` 拷贝一次
+
 ## 启动
 
 ```bash
 pnpm install
 pnpm dev
+```
+
+## 维护命令
+
+```bash
+pnpm cleanup:legacy-storage -- --dry-run
+pnpm cleanup:legacy-storage
 ```

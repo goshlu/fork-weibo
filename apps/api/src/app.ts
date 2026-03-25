@@ -1,5 +1,7 @@
-import { mkdir } from 'node:fs/promises';
+import type { Dirent } from 'node:fs';
+import { access, copyFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
@@ -26,17 +28,72 @@ import { authPlugin } from './plugins/auth.js';
 import { errorPlugin } from './plugins/errors.js';
 import { securityPlugin } from './plugins/security.js';
 
+const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const workspaceRoot = path.resolve(appRoot, '..', '..');
+const seedRoot = path.resolve(appRoot, 'seed');
+
+function resolveStorageDir(configuredDir: string): string {
+  if (path.isAbsolute(configuredDir)) {
+    return configuredDir;
+  }
+
+  const normalized = configuredDir
+    .replace(/\\/g, '/')
+    .replace(/^\.\/+/, '');
+
+  if (normalized === 'apps/api' || normalized.startsWith('apps/api/')) {
+    return path.resolve(workspaceRoot, normalized);
+  }
+
+  return path.resolve(appRoot, normalized);
+}
+
+async function bootstrapDataFromSeed(dataRoot: string): Promise<void> {
+  let entries: Dirent[];
+
+  try {
+    entries = await readdir(seedRoot, { withFileTypes: true });
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError.code === 'ENOENT') {
+      return;
+    }
+    throw error;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) {
+      continue;
+    }
+
+    const targetPath = path.join(dataRoot, entry.name);
+
+    try {
+      await access(targetPath);
+      continue;
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+      if (nodeError.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    await copyFile(path.join(seedRoot, entry.name), targetPath);
+  }
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: true,
     trustProxy: env.TRUST_PROXY === 'true',
   });
 
-  const uploadRoot = path.join(process.cwd(), env.UPLOAD_DIR);
-  const dataRoot = path.join(process.cwd(), env.DATA_DIR);
+  const uploadRoot = resolveStorageDir(env.UPLOAD_DIR);
+  const dataRoot = resolveStorageDir(env.DATA_DIR);
 
   await mkdir(uploadRoot, { recursive: true });
   await mkdir(dataRoot, { recursive: true });
+  await bootstrapDataFromSeed(dataRoot);
 
   await app.register(cors, {
     origin: true,

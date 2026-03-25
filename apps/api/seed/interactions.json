@@ -1,0 +1,72 @@
+{
+  "likes": [],
+  "favorites": [
+    {
+      "userId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "postId": "cfc822a9-f2dd-4ee6-a22c-5987f75e7eb9",
+      "folderName": "default",
+      "createdAt": "2026-03-13T07:52:35.523Z"
+    },
+    {
+      "userId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "postId": "87e8dd2c-5396-4327-8b55-2c79c1f65027",
+      "folderName": "default",
+      "createdAt": "2026-03-13T08:08:30.817Z"
+    },
+    {
+      "userId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "postId": "1093a65c-4b0e-4249-a8b1-4a70fc90e313",
+      "folderName": "default",
+      "createdAt": "2026-03-16T03:08:45.624Z"
+    },
+    {
+      "userId": "1e662616-3b40-4e7f-b82c-43e54ea55e8b",
+      "postId": "cfc822a9-f2dd-4ee6-a22c-5987f75e7eb9",
+      "folderName": "default",
+      "createdAt": "2026-03-20T06:06:47.203Z"
+    }
+  ],
+  "comments": [
+    {
+      "id": "9f12a1db-7e90-4dfe-89c9-20f3f0d6954e",
+      "postId": "cfc822a9-f2dd-4ee6-a22c-5987f75e7eb9",
+      "authorId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "parentId": null,
+      "content": "want this hask",
+      "createdAt": "2026-03-13T07:22:29.051Z",
+      "updatedAt": "2026-03-13T07:22:29.051Z"
+    },
+    {
+      "id": "c2b1f002-fbb1-4c29-8719-b34cf65ddf76",
+      "postId": "cfc822a9-f2dd-4ee6-a22c-5987f75e7eb9",
+      "authorId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "parentId": null,
+      "content": "是是是",
+      "createdAt": "2026-03-16T02:37:34.286Z",
+      "updatedAt": "2026-03-16T02:37:34.286Z"
+    },
+    {
+      "id": "38c21d9a-a532-4255-a872-06c9823345f5",
+      "postId": "cfc822a9-f2dd-4ee6-a22c-5987f75e7eb9",
+      "authorId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "parentId": "c2b1f002-fbb1-4c29-8719-b34cf65ddf76",
+      "content": "1111",
+      "createdAt": "2026-03-16T02:37:44.007Z",
+      "updatedAt": "2026-03-16T02:37:44.007Z"
+    }
+  ],
+  "follows": [],
+  "notifications": [
+    {
+      "id": "0be46efe-3d18-4b85-9293-9cdce82a31f4",
+      "userId": "c97bfcb4-ab9f-4601-9260-9aa29d6ead7c",
+      "actorId": "1e662616-3b40-4e7f-b82c-43e54ea55e8b",
+      "type": "favorite",
+      "entityId": "cfc822a9-f2dd-4ee6-a22c-5987f75e7eb9",
+      "entityType": "post",
+      "message": "Someone saved your post to \"default\".",
+      "isRead": false,
+      "createdAt": "2026-03-20T06:06:47.203Z"
+    }
+  ]
+}
