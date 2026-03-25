@@ -101,6 +101,34 @@ async function migrateLegacyUploads(uploadRoot: string): Promise<void> {
   });
 }
 
+async function getLegacyUploadStatus(uploadRoot: string): Promise<{
+  legacyUploadRoot?: string;
+  entryCount: number;
+}> {
+  const legacyUploadRoot = resolveLegacyStorageDir(env.UPLOAD_DIR);
+  if (!legacyUploadRoot) {
+    return { legacyUploadRoot: undefined, entryCount: 0 };
+  }
+
+  if (path.resolve(legacyUploadRoot) === path.resolve(uploadRoot)) {
+    return { legacyUploadRoot, entryCount: 0 };
+  }
+
+  try {
+    await access(legacyUploadRoot);
+  } catch (error) {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError.code === 'ENOENT') {
+      return { legacyUploadRoot, entryCount: 0 };
+    }
+    throw error;
+  }
+
+  const entries = await readdir(legacyUploadRoot);
+  const entryCount = entries.filter((entry) => entry !== '.gitkeep').length;
+  return { legacyUploadRoot, entryCount };
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: true,
@@ -118,7 +146,19 @@ export async function buildApp() {
   await mkdir(uploadRoot, { recursive: true });
   await mkdir(dataRoot, { recursive: true });
   await migrateLegacyUploads(uploadRoot);
+  const legacyUploadStatus = await getLegacyUploadStatus(uploadRoot);
   await bootstrapDataFromSeed(dataRoot);
+
+  if (legacyUploadStatus.legacyUploadRoot && legacyUploadStatus.entryCount > 0) {
+    app.log.warn(
+      {
+        legacyUploadRoot: legacyUploadStatus.legacyUploadRoot,
+        currentUploadRoot: uploadRoot,
+        remainingEntries: legacyUploadStatus.entryCount,
+      },
+      'legacy upload directory still has files; run `pnpm cleanup:legacy-storage`',
+    );
+  }
 
   await app.register(cors, {
     origin: true,
