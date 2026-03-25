@@ -216,6 +216,16 @@ button {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+@keyframes message-slide-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
 .sidebar-logout {
   display: flex;
   align-items: center;
@@ -620,7 +630,24 @@ textarea {
   resize: vertical;
   min-height: 132px;
 }
-.message-bar,
+.message-bar {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  min-width: 240px;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(29, 93, 104, 0.18);
+  background: #ffffff;
+  color: rgba(22, 17, 15, 0.88);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  line-height: 1.45;
+  animation: message-slide-in 180ms ease;
+}
+
 .empty-state {
   margin-top: 16px;
   padding: 14px 16px;
