@@ -12,8 +12,9 @@ import type {
   CommentView,
   FavoriteListItem,
   InteractionStore,
+  NotificationListQuery,
+  NotificationListResult,
   NotificationRecord,
-  NotificationView,
 } from './interaction.types.js';
 
 export class InteractionService {
@@ -288,11 +289,10 @@ export class InteractionService {
     return result;
   }
 
-  async listNotifications(userId: string): Promise<NotificationView[]> {
+  async listNotifications(userId: string, query: NotificationListQuery): Promise<NotificationListResult> {
     const [store, users] = await Promise.all([this.repository.read(), this.userRepository.list()]);
     const userMap = new Map(users.map((user) => [user.id, user]));
-
-    return store.notifications
+    const sorted = store.notifications
       .filter((item) => item.userId === userId)
       .sort(
         (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
@@ -305,6 +305,17 @@ export class InteractionService {
           message: this.toNotificationMessage(item, actor),
         };
       });
+
+    const start = (query.page - 1) * query.pageSize;
+    const items = sorted.slice(start, start + query.pageSize);
+
+    return {
+      items,
+      page: query.page,
+      pageSize: query.pageSize,
+      total: sorted.length,
+      hasMore: start + items.length < sorted.length,
+    };
   }
 
   async markNotificationsRead(userId: string): Promise<{ updated: number }> {

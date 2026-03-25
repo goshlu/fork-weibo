@@ -88,6 +88,14 @@ export type Notification = {
   createdAt: string;
 };
 
+export type NotificationListResult = {
+  items: Notification[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+};
+
 export type FavoriteItem = {
   postId: string;
   folderName: string;

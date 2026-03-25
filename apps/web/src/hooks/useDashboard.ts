@@ -120,6 +120,7 @@ export type DashboardReturn = {
 const TOKEN_KEY = 'fork-weibo-token';
 const USER_KEY = 'fork-weibo-user';
 const DEFAULT_FAVORITE_FOLDER = 'default';
+const NOTIFICATIONS_PAGE_SIZE = 20;
 
 function readStoredUser(): User | null {
   if (typeof window === 'undefined') return null;
@@ -149,6 +150,24 @@ function buildViewerMaps(posts: Post[]): { liked: Record<string, boolean>; follo
     },
     { liked: {} as Record<string, boolean>, following: {} as Record<string, boolean> },
   );
+}
+
+function mergeNotificationPages(current: Notification[], incoming: Notification[]): Notification[] {
+  const merged = [...current];
+  const indexById = new Map(merged.map((item, index) => [item.id, index]));
+
+  for (const item of incoming) {
+    const existingIndex = indexById.get(item.id);
+    if (existingIndex === undefined) {
+      indexById.set(item.id, merged.length);
+      merged.push(item);
+      continue;
+    }
+
+    merged[existingIndex] = item;
+  }
+
+  return merged;
 }
 
 export function useDashboard(): DashboardReturn {
@@ -234,6 +253,9 @@ export function useDashboard(): DashboardReturn {
       setFavorites([]);
       setFavoritePostIds({});
       setNotifications([]);
+      setNotificationPage(1);
+      setNotificationHasMore(true);
+      setLoadingMore(false);
       setPostDetail(null);
       setPostDetailHighlightCommentId('');
       setProfileForm({ nickname: '', bio: '', password: '' });
@@ -243,6 +265,23 @@ export function useDashboard(): DashboardReturn {
 
     void refreshAuthedData(token);
   }, [token]);
+
+  useEffect(() => {
+    if (!token || viewMode !== 'notifications') {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const data = await api.getNotifications(token, { page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE });
+        setNotifications(data.items);
+        setNotificationPage(data.page);
+        setNotificationHasMore(data.hasMore);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : t.loadMoreNotificationsFailed);
+      }
+    })();
+  }, [token, viewMode, t.loadMoreNotificationsFailed]);
 
   async function loadDiscovery() {
     try {
@@ -284,7 +323,7 @@ export function useDashboard(): DashboardReturn {
         api.getProfile(me.id),
         api.getPosts({ authorId: me.id, status: 'published', pageSize: 20 }, activeToken),
         api.getPosts({ authorId: me.id, status: 'draft', pageSize: 20 }, activeToken),
-        api.getNotifications(activeToken),
+        api.getNotifications(activeToken, { page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE }),
         api.getFavorites(activeToken),
       ]);
 
@@ -305,7 +344,10 @@ export function useDashboard(): DashboardReturn {
       setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
       setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
       setDraftEdits(Object.fromEntries(draftsData.items.map((item) => [item.id, item.content])));
-      setNotifications(notificationsData.notifications);
+      setNotifications(notificationsData.items);
+      setNotificationPage(notificationsData.page);
+      setNotificationHasMore(notificationsData.hasMore);
+      setLoadingMore(false);
       setFavorites(favoritesData.items);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.sessionFailed);
@@ -330,6 +372,9 @@ export function useDashboard(): DashboardReturn {
     setFavorites([]);
     setFavoritePostIds({});
     setNotifications([]);
+    setNotificationPage(1);
+    setNotificationHasMore(true);
+    setLoadingMore(false);
     setPostDetail(null);
     setPostDetailHighlightCommentId('');
     setLikedPostIds({});
@@ -725,13 +770,10 @@ export function useDashboard(): DashboardReturn {
     setLoadingMore(true);
     try {
       const nextPage = notificationPage + 1;
-      // 当前 API 不支持分页，这里模拟加载更多的逻辑
-      // 实际项目中需要后端支持分页参数
-      setNotificationPage(nextPage);
-      // 假设每页 20 条，当通知总数少于 page * 20 时表示无更多数据
-      if (notifications.length < nextPage * 20) {
-        setNotificationHasMore(false);
-      }
+      const data = await api.getNotifications(token, { page: nextPage, pageSize: NOTIFICATIONS_PAGE_SIZE });
+      setNotifications((prev) => mergeNotificationPages(prev, data.items));
+      setNotificationPage(data.page);
+      setNotificationHasMore(data.hasMore);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.loadMoreNotificationsFailed);
     } finally {

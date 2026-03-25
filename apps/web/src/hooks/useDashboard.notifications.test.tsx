@@ -81,6 +81,24 @@ function createMockProfile(overrides: Partial<UserProfile> = {}): UserProfile {
   };
 }
 
+function createNotificationPage(
+  notifications: Notification[],
+  options: { page?: number; pageSize?: number; total?: number; hasMore?: boolean } = {},
+) {
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? 20;
+  const total = options.total ?? notifications.length;
+  const hasMore = options.hasMore ?? page * pageSize < total;
+
+  return {
+    items: notifications,
+    page,
+    pageSize,
+    total,
+    hasMore,
+  };
+}
+
 // Wrapper component with I18nProvider
 function createWrapper() {
   return ({ children }: { children: React.ReactNode }) => (
@@ -103,7 +121,7 @@ describe('useDashboard - notification actions', () => {
     vi.mocked(api.getProfile).mockResolvedValue({ profile: createMockProfile() });
     vi.mocked(api.getPosts).mockResolvedValue({ items: [] });
     vi.mocked(api.getFavorites).mockResolvedValue({ items: [], total: 0 });
-    vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [] });
+    vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([]));
     vi.mocked(api.markNotificationsRead).mockResolvedValue(undefined);
     vi.mocked(api.markNotificationRead).mockResolvedValue(undefined);
     vi.mocked(api.getComment).mockResolvedValue({
@@ -144,7 +162,7 @@ describe('useDashboard - notification actions', () => {
         createMockNotification({ id: 'notif-3', isRead: false, type: 'follow' }),
       ];
 
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: mockNotifications });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage(mockNotifications));
 
       // Set token in localStorage before rendering
       localStorage.setItem('fork-weibo-token', mockToken);
@@ -184,7 +202,7 @@ describe('useDashboard - notification actions', () => {
     });
 
     it('should set busy state while marking notifications as read', async () => {
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [createMockNotification()] });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([createMockNotification()]));
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -207,7 +225,7 @@ describe('useDashboard - notification actions', () => {
     });
 
     it('should handle API error gracefully', async () => {
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [createMockNotification()] });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([createMockNotification()]));
       vi.mocked(api.markNotificationsRead).mockRejectedValue(new Error('Network error'));
 
       localStorage.setItem('fork-weibo-token', mockToken);
@@ -236,7 +254,7 @@ describe('useDashboard - notification actions', () => {
         createMockNotification({ id: 'notif-2', isRead: false }),
       ];
 
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: mockNotifications });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage(mockNotifications));
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -274,7 +292,7 @@ describe('useDashboard - notification actions', () => {
     });
 
     it('should handle API error gracefully', async () => {
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [createMockNotification()] });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([createMockNotification()]));
       vi.mocked(api.markNotificationRead).mockRejectedValue(new Error('Failed to mark'));
 
       localStorage.setItem('fork-weibo-token', mockToken);
@@ -298,7 +316,7 @@ describe('useDashboard - notification actions', () => {
     it('should mark notification as read optimistically', async () => {
       const notification = createMockNotification({ id: 'notif-1', isRead: false });
       
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [notification] });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([notification]));
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -325,7 +343,7 @@ describe('useDashboard - notification actions', () => {
         type: 'follow',
       });
 
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [notification] });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([notification]));
       vi.mocked(api.getProfile).mockResolvedValue({ profile: createMockProfile({ id: 'user-2' }) });
 
       localStorage.setItem('fork-weibo-token', mockToken);
@@ -354,7 +372,7 @@ describe('useDashboard - notification actions', () => {
         type: 'like',
       });
 
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [notification] });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([notification]));
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -381,7 +399,7 @@ describe('useDashboard - notification actions', () => {
         type: 'comment',
       });
 
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [notification] });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([notification]));
       vi.mocked(api.getComment).mockResolvedValue({
         comment: {
           id: 'comment-1',
@@ -419,7 +437,7 @@ describe('useDashboard - notification actions', () => {
         entityId: 'post-1',
       });
 
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [notification] });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([notification]));
       vi.mocked(api.getPost).mockRejectedValue(new Error('Post not found'));
 
       localStorage.setItem('fork-weibo-token', mockToken);
@@ -447,11 +465,20 @@ describe('useDashboard - notification actions', () => {
         await result.current.actions.loadMoreNotifications();
       });
 
+      expect(api.getNotifications).not.toHaveBeenCalled();
       expect(result.current.state.notificationPage).toBe(1);
     });
 
-    it('should not load more when already loading', async () => {
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [createMockNotification()] });
+    it('should append notifications from the next page', async () => {
+      const firstPageItems = Array.from({ length: 20 }, (_, i) =>
+        createMockNotification({ id: `notif-${i}` }),
+      );
+      const secondPageItems = Array.from({ length: 5 }, (_, i) =>
+        createMockNotification({ id: `notif-${20 + i}` }),
+      );
+      vi.mocked(api.getNotifications)
+        .mockResolvedValueOnce(createNotificationPage(firstPageItems, { page: 1, pageSize: 20, total: 25, hasMore: true }))
+        .mockResolvedValueOnce(createNotificationPage(secondPageItems, { page: 2, pageSize: 20, total: 25, hasMore: false }));
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -459,26 +486,27 @@ describe('useDashboard - notification actions', () => {
       const { result } = renderHook(() => useDashboard(), { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(result.current.state.notifications).toHaveLength(1);
+        expect(result.current.state.notifications).toHaveLength(20);
       });
 
-      // Set loading state manually
       await act(async () => {
-        result.current.actions.loadMoreNotifications();
-        // Call again while first call might be in progress
         await result.current.actions.loadMoreNotifications();
       });
 
-      // Should not exceed page 2 due to duplicate calls
-      expect(result.current.state.notificationPage).toBeLessThanOrEqual(2);
+      expect(api.getNotifications).toHaveBeenNthCalledWith(1, mockToken, { page: 1, pageSize: 20 });
+      expect(api.getNotifications).toHaveBeenNthCalledWith(2, mockToken, { page: 2, pageSize: 20 });
+      expect(result.current.state.notifications).toHaveLength(25);
+      expect(result.current.state.notificationPage).toBe(2);
+      expect(result.current.state.notificationHasMore).toBe(false);
     });
 
     it('should not load more when no more notifications available', async () => {
-      // Create 15 notifications - less than one full "page" (20)
-      const mockNotifications = Array.from({ length: 15 }, (_, i) => 
+      const mockNotifications = Array.from({ length: 15 }, (_, i) =>
         createMockNotification({ id: `notif-${i}` })
       );
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: mockNotifications });
+      vi.mocked(api.getNotifications).mockResolvedValue(
+        createNotificationPage(mockNotifications, { page: 1, pageSize: 20, total: 15, hasMore: false }),
+      );
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -489,41 +517,24 @@ describe('useDashboard - notification actions', () => {
         expect(result.current.state.notifications).toHaveLength(15);
       });
 
-      // Load more - since we have 15 < 20, hasMore should become false
       await act(async () => {
         await result.current.actions.loadMoreNotifications();
       });
 
+      expect(api.getNotifications).toHaveBeenCalledTimes(1);
       expect(result.current.state.notificationHasMore).toBe(false);
     });
 
-    it('should increment page number on successful load', async () => {
-      // Create 25 notifications - more than one "page" (20)
-      const mockNotifications = Array.from({ length: 25 }, (_, i) =>
-        createMockNotification({ id: `notif-${i}` })
-      );
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: mockNotifications });
-
-      localStorage.setItem('fork-weibo-token', mockToken);
-      localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
-
-      const { result } = renderHook(() => useDashboard(), { wrapper: createWrapper() });
-
-      await waitFor(() => {
-        expect(result.current.state.notifications).toHaveLength(25);
+    it('should set loadingMore state during request', async () => {
+      const firstPage = [createMockNotification({ id: 'notif-1' })];
+      let resolveNextPage: ((value: ReturnType<typeof createNotificationPage>) => void) | undefined;
+      const nextPagePromise = new Promise<ReturnType<typeof createNotificationPage>>((resolve) => {
+        resolveNextPage = resolve;
       });
 
-      expect(result.current.state.notificationPage).toBe(1);
-
-      await act(async () => {
-        await result.current.actions.loadMoreNotifications();
-      });
-
-      expect(result.current.state.notificationPage).toBe(2);
-    });
-
-    it('should set loadingMore state during load', async () => {
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [createMockNotification()] });
+      vi.mocked(api.getNotifications)
+        .mockResolvedValueOnce(createNotificationPage(firstPage, { page: 1, pageSize: 20, total: 21, hasMore: true }))
+        .mockImplementationOnce(() => nextPagePromise);
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -534,17 +545,26 @@ describe('useDashboard - notification actions', () => {
         expect(result.current.state.notifications).toHaveLength(1);
       });
 
-      expect(result.current.state.loadingMore).toBe(false);
+      act(() => {
+        void result.current.actions.loadMoreNotifications();
+      });
+
+      expect(result.current.state.loadingMore).toBe(true);
 
       await act(async () => {
-        await result.current.actions.loadMoreNotifications();
+        resolveNextPage?.(
+          createNotificationPage([createMockNotification({ id: 'notif-2' })], { page: 2, pageSize: 20, total: 21, hasMore: false }),
+        );
+        await nextPagePromise;
       });
 
       expect(result.current.state.loadingMore).toBe(false);
     });
 
     it('should handle error gracefully', async () => {
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: [createMockNotification()] });
+      vi.mocked(api.getNotifications)
+        .mockResolvedValueOnce(createNotificationPage([createMockNotification()], { page: 1, pageSize: 20, total: 21, hasMore: true }))
+        .mockRejectedValueOnce(new Error('load more failed'));
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -555,22 +575,18 @@ describe('useDashboard - notification actions', () => {
         expect(result.current.state.notifications).toHaveLength(1);
       });
 
-      // The current implementation doesn't make API calls in loadMoreNotifications
-      // It just simulates pagination logic
       await act(async () => {
         await result.current.actions.loadMoreNotifications();
       });
 
-      // Should not have error message since no API call fails
-      expect(result.current.state.notificationPage).toBe(2);
+      expect(result.current.state.message).toBe('load more failed');
+      expect(result.current.state.notificationPage).toBe(1);
     });
   });
 
   describe('notification state management', () => {
     it('should clear notifications on logout', async () => {
-      vi.mocked(api.getNotifications).mockResolvedValue({
-        notifications: [createMockNotification()],
-      });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage([createMockNotification()]));
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -595,7 +611,7 @@ describe('useDashboard - notification actions', () => {
         createMockNotification({ id: 'notif-2', type: 'comment' }),
       ];
 
-      vi.mocked(api.getNotifications).mockResolvedValue({ notifications: mockNotifications });
+      vi.mocked(api.getNotifications).mockResolvedValue(createNotificationPage(mockNotifications));
 
       localStorage.setItem('fork-weibo-token', mockToken);
       localStorage.setItem('fork-weibo-user', JSON.stringify(createMockUser()));
@@ -606,7 +622,7 @@ describe('useDashboard - notification actions', () => {
         expect(result.current.state.notifications).toHaveLength(2);
       });
 
-      expect(api.getNotifications).toHaveBeenCalledWith(mockToken);
+      expect(api.getNotifications).toHaveBeenCalledWith(mockToken, { page: 1, pageSize: 20 });
     });
 
     it('should initialize with empty notifications', () => {

@@ -49,6 +49,19 @@ export interface NotificationView extends NotificationRecord {
   actor: PostAuthorSummary | null;
 }
 
+export interface NotificationListQuery {
+  page: number;
+  pageSize: number;
+}
+
+export interface NotificationListResult {
+  items: NotificationView[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
+
 export interface InteractionStore {
   likes: LikeRecord[];
   favorites: FavoriteRecord[];

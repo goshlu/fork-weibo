@@ -4,7 +4,7 @@ import type {
   ComposerState,
   FavoriteItem,
   FeedMode,
-  Notification,
+  NotificationListResult,
   Post,
   SearchTrend,
   Topic,
@@ -122,8 +122,11 @@ export const api = {
   getComment(commentId: string) {
     return request<{ comment: Comment }>(`/comments/${commentId}`);
   },
-  getNotifications(token: string) {
-    return request<{ notifications: Notification[] }>('/notifications', {}, token);
+  getNotifications(token: string, params?: { page?: number; pageSize?: number }) {
+    const query = new URLSearchParams();
+    query.set('page', String(params?.page ?? 1));
+    query.set('pageSize', String(params?.pageSize ?? 20));
+    return request<NotificationListResult>(`/notifications?${query.toString()}`, {}, token);
   },
   markNotificationsRead(token: string) {
     return request('/notifications/read', { method: 'POST' }, token);

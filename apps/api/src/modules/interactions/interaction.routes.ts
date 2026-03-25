@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { toErrorResponse } from '../../utils/http.js';
-import { commentSchema, favoriteSchema } from './interaction.schemas.js';
+import { commentSchema, favoriteSchema, notificationQuerySchema } from './interaction.schemas.js';
 import type { InteractionService } from './interaction.service.js';
 
 export async function registerInteractionRoutes(
@@ -152,8 +152,8 @@ export async function registerInteractionRoutes(
 
   app.get('/api/notifications', { preHandler: [app.authenticate] }, async (request, reply) => {
     try {
-      const notifications = await interactionService.listNotifications(request.user.userId);
-      return { notifications };
+      const query = notificationQuerySchema.parse(request.query);
+      return interactionService.listNotifications(request.user.userId, query);
     } catch (error) {
       const mapped = toErrorResponse(error);
       return reply.code(mapped.statusCode).send({ message: mapped.message });
@@ -189,4 +189,3 @@ export async function registerInteractionRoutes(
     },
   );
 }
-

@@ -583,7 +583,7 @@ describe('api service', () => {
 
   describe('notification endpoints', () => {
     it('should get notifications', async () => {
-      const mockResponse = { notifications: [] };
+      const mockResponse = { items: [], page: 1, pageSize: 20, total: 0, hasMore: false };
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -593,7 +593,24 @@ describe('api service', () => {
       const result = await api.getNotifications(mockToken);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        `${apiBaseUrl}/notifications`,
+        `${apiBaseUrl}/notifications?page=1&pageSize=20`,
+        expect.any(Object)
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should get notifications with custom pagination', async () => {
+      const mockResponse = { items: [], page: 2, pageSize: 10, total: 25, hasMore: true };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await api.getNotifications(mockToken, { page: 2, pageSize: 10 });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${apiBaseUrl}/notifications?page=2&pageSize=10`,
         expect.any(Object)
       );
       expect(result).toEqual(mockResponse);
