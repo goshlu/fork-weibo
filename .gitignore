@@ -13,5 +13,6 @@ pnpm-lock.yaml
 .pnpm-store
 apps/api/uploads/*
 apps/api/data/*.json
+apps/api/legacy-backup/
 !apps/api/uploads/.gitkeep
 apps/web/test-results/
