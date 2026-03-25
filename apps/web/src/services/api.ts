@@ -2,6 +2,7 @@ import type {
   Channel,
   Comment,
   ComposerState,
+  FeedListResult,
   FavoriteItem,
   FeedMode,
   NotificationListResult,
@@ -61,9 +62,12 @@ export const api = {
   getPost(postId: string, token?: string) {
     return request<{ post: Post }>(`/posts/${postId}`, {}, token);
   },
-  getFeed(mode: FeedMode, token?: string) {
-    const path = mode === 'hot' ? '/feed/hot?page=1&pageSize=10' : mode === 'following' ? '/feed/following?page=1&pageSize=10' : '/feed/recommended?page=1&pageSize=10';
-    return request<{ items: Post[] }>(path, {}, token);
+  getFeed(mode: FeedMode, token?: string, params?: { page?: number; pageSize?: number }) {
+    const query = new URLSearchParams();
+    query.set('page', String(params?.page ?? 1));
+    query.set('pageSize', String(params?.pageSize ?? 10));
+    const path = mode === 'hot' ? '/feed/hot' : mode === 'following' ? '/feed/following' : '/feed/recommended';
+    return request<FeedListResult>(`${path}?${query.toString()}`, {}, token);
   },
   getPosts(params: { pageSize?: number; authorId?: string; status?: 'draft' | 'published' }, token?: string) {
     const query = new URLSearchParams();

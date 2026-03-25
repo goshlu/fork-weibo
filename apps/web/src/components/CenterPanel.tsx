@@ -22,8 +22,10 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           expandedComments={state.expandedComments}
           favoritePostIds={state.favoritePostIds}
           feedMode={state.feedMode}
+          hasMore={state.feedHasMore}
           followingAuthorIds={state.followingAuthorIds}
           likedPostIds={state.likedPostIds}
+          loadingMore={state.feedLoadingMore}
           message={state.message}
           onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
           onComposerChange={actions.setComposer}
@@ -31,6 +33,7 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           onFeedModeChange={actions.setFeedMode}
           onFollow={(authorId) => void actions.toggleFollow(authorId)}
           onLike={(postId) => void actions.toggleLike(postId)}
+          onLoadMore={() => void actions.loadMoreFeed()}
           onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
           onOpenPost={(postId) => void actions.openPostDetail(postId)}
           onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}

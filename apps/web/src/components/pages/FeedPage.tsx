@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { PostCard } from '../PostCard';
@@ -9,6 +9,8 @@ type FeedPageProps = {
   busy: string;
   composer: ComposerState;
   feedMode: FeedMode;
+  hasMore: boolean;
+  loadingMore: boolean;
   message: string;
   posts: Post[];
   likedPostIds: Record<string, boolean>;
@@ -23,6 +25,7 @@ type FeedPageProps = {
   onOpenPost: (postId: string) => void;
   onSubmitComposer: () => void;
   onLike: (postId: string) => void;
+  onLoadMore: () => void;
   onFavorite: (postId: string) => void;
   onFollow: (authorId: string) => void;
   onToggleComments: (postId: string) => void;
@@ -55,10 +58,13 @@ export function FeedPage(props: FeedPageProps) {
   const { dictionary } = useI18n();
   const feedTitles = dictionary.feedTitles;
   const texts = dictionary.feedPage;
+  const notificationTexts = dictionary.notifications;
   const {
     busy,
     composer,
     feedMode,
+    hasMore,
+    loadingMore,
     message,
     posts,
     likedPostIds,
@@ -72,12 +78,30 @@ export function FeedPage(props: FeedPageProps) {
     onOpenAuthor,
     onSubmitComposer,
     onLike,
+    onLoadMore,
     onFavorite,
     onFollow,
     onToggleComments,
     onCommentDraftChange,
     onSubmitComment,
   } = props;
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          onLoadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' },
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore]);
 
   return (
     <>
@@ -164,26 +188,31 @@ export function FeedPage(props: FeedPageProps) {
 
       <div className="post-list">
         {posts.length ? (
-          posts.map((post) => (
-            <PostCard
-              busy={busy}
-              commentDraft={commentDrafts[post.id] ?? ''}
-              comments={commentsByPost[post.id] ?? []}
-              commentsOpen={expandedComments[post.id] ?? false}
-              favorited={favoritePostIds[post.id] ?? false}
-              followed={followingAuthorIds[post.authorId] ?? false}
-              key={post.id}
-              liked={likedPostIds[post.id] ?? false}
-              onCommentDraftChange={onCommentDraftChange}
-              onFavorite={onFavorite}
-              onFollow={onFollow}
-              onLike={onLike}
-              onOpenAuthor={onOpenAuthor}
-              onSubmitComment={onSubmitComment}
-              onToggleComments={onToggleComments}
-              post={post}
-            />
-          ))
+          <>
+            {posts.map((post) => (
+              <PostCard
+                busy={busy}
+                commentDraft={commentDrafts[post.id] ?? ''}
+                comments={commentsByPost[post.id] ?? []}
+                commentsOpen={expandedComments[post.id] ?? false}
+                favorited={favoritePostIds[post.id] ?? false}
+                followed={followingAuthorIds[post.authorId] ?? false}
+                key={post.id}
+                liked={likedPostIds[post.id] ?? false}
+                onCommentDraftChange={onCommentDraftChange}
+                onFavorite={onFavorite}
+                onFollow={onFollow}
+                onLike={onLike}
+                onOpenAuthor={onOpenAuthor}
+                onSubmitComment={onSubmitComment}
+                onToggleComments={onToggleComments}
+                post={post}
+              />
+            ))}
+            {hasMore ? <div ref={sentinelRef} style={{ height: '40px' }} /> : null}
+            {loadingMore ? <div className="empty-state">{notificationTexts.loadingMore}</div> : null}
+            {!hasMore ? <div className="empty-state">{notificationTexts.noMore}</div> : null}
+          </>
         ) : (
           <div className="empty-state">{texts.empty}</div>
         )}
@@ -191,5 +220,3 @@ export function FeedPage(props: FeedPageProps) {
     </>
   );
 }
-
-

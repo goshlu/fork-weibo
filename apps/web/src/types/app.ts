@@ -61,6 +61,13 @@ export type Post = {
   publishedAt: string | null;
 };
 
+export type FeedListResult = {
+  items: Post[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
 export type Topic = { topic: string; count: number };
 export type SearchTrend = { keyword: string; count: number };
 export type Channel = { channel: string; count: number };

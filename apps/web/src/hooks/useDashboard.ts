@@ -52,6 +52,9 @@ type DashboardState = {
   favoriteFolderName: string;
   favoritePostIds: Record<string, boolean>;
   favorites: FavoriteItem[];
+  feedPage: number;
+  feedHasMore: boolean;
+  feedLoadingMore: boolean;
   feedMode: FeedMode;
   followingAuthorIds: Record<string, boolean>;
   likedPostIds: Record<string, boolean>;
@@ -104,6 +107,7 @@ type DashboardActions = {
   submitAuth: () => Promise<void>;
   submitComment: (postId: string, parentId?: string) => Promise<void>;
   submitComposer: () => Promise<void>;
+  loadMoreFeed: () => Promise<void>;
   toggleComments: (postId: string) => Promise<void>;
   toggleFavorite: (postId: string) => Promise<void>;
   toggleFollow: (authorId: string) => Promise<void>;
@@ -120,6 +124,7 @@ export type DashboardReturn = {
 const TOKEN_KEY = 'fork-weibo-token';
 const USER_KEY = 'fork-weibo-user';
 const DEFAULT_FAVORITE_FOLDER = 'default';
+const FEED_PAGE_SIZE = 10;
 const NOTIFICATIONS_PAGE_SIZE = 20;
 
 function readStoredUser(): User | null {
@@ -153,6 +158,24 @@ function buildViewerMaps(posts: Post[]): { liked: Record<string, boolean>; follo
 }
 
 function mergeNotificationPages(current: Notification[], incoming: Notification[]): Notification[] {
+  const merged = [...current];
+  const indexById = new Map(merged.map((item, index) => [item.id, index]));
+
+  for (const item of incoming) {
+    const existingIndex = indexById.get(item.id);
+    if (existingIndex === undefined) {
+      indexById.set(item.id, merged.length);
+      merged.push(item);
+      continue;
+    }
+
+    merged[existingIndex] = item;
+  }
+
+  return merged;
+}
+
+function mergePostPages(current: Post[], incoming: Post[]): Post[] {
   const merged = [...current];
   const indexById = new Map(merged.map((item, index) => [item.id, index]));
 
@@ -208,6 +231,9 @@ export function useDashboard(): DashboardReturn {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
   const [feedMode, setFeedMode] = useState<FeedMode>('hot');
+  const [feedPage, setFeedPage] = useState(1);
+  const [feedHasMore, setFeedHasMore] = useState(true);
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false);
   const [busy, setBusy] = useState<BusyState>('');
   const [message, setMessage] = useState('');
   const [authForm, setAuthForm] = useState<AuthFormState>({ username: '', password: '', nickname: '' });
@@ -218,7 +244,7 @@ export function useDashboard(): DashboardReturn {
   }, []);
 
   useEffect(() => {
-    void loadFeed(feedMode, token || undefined);
+    void loadFeed(feedMode, token || undefined, { page: 1, append: false });
   }, [feedMode, token]);
 
   useEffect(() => {
@@ -252,6 +278,9 @@ export function useDashboard(): DashboardReturn {
       setDrafts([]);
       setFavorites([]);
       setFavoritePostIds({});
+      setFeedPage(1);
+      setFeedHasMore(true);
+      setFeedLoadingMore(false);
       setNotifications([]);
       setNotificationPage(1);
       setNotificationHasMore(true);
@@ -298,10 +327,14 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
-  async function loadFeed(mode: FeedMode, activeToken?: string) {
+  async function loadFeed(mode: FeedMode, activeToken?: string, options?: { page?: number; append?: boolean }) {
     try {
-      const data = await api.getFeed(mode, activeToken);
-      setPosts(data.items);
+      const page = options?.page ?? 1;
+      const data = await api.getFeed(mode, activeToken, { page, pageSize: FEED_PAGE_SIZE });
+      setPosts((prev) => (options?.append ? mergePostPages(prev, data.items) : data.items));
+      setFeedPage(data.page);
+      setFeedHasMore(data.page * data.pageSize < data.total);
+      setFeedLoadingMore(false);
       if (activeToken) {
         const viewerMaps = buildViewerMaps(data.items);
         setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
@@ -371,6 +404,9 @@ export function useDashboard(): DashboardReturn {
     setDraftEdits({});
     setFavorites([]);
     setFavoritePostIds({});
+    setFeedPage(1);
+    setFeedHasMore(true);
+    setFeedLoadingMore(false);
     setNotifications([]);
     setNotificationPage(1);
     setNotificationHasMore(true);
@@ -597,6 +633,35 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
+  async function loadMoreFeed() {
+    if (feedLoadingMore || !feedHasMore) {
+      return;
+    }
+
+    if (!token && feedMode !== 'hot') {
+      setMessage(t.loginRequired);
+      return;
+    }
+
+    setFeedLoadingMore(true);
+    try {
+      const nextPage = feedPage + 1;
+      const data = await api.getFeed(feedMode, token || undefined, { page: nextPage, pageSize: FEED_PAGE_SIZE });
+      setPosts((prev) => mergePostPages(prev, data.items));
+      setFeedPage(data.page);
+      setFeedHasMore(data.page * data.pageSize < data.total);
+      if (token) {
+        const viewerMaps = buildViewerMaps(data.items);
+        setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
+        setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : t.feedFailed);
+    } finally {
+      setFeedLoadingMore(false);
+    }
+  }
+
   async function saveDraft(postId: string) {
     if (!token) {
       setMessage(t.loginRequired);
@@ -798,6 +863,9 @@ export function useDashboard(): DashboardReturn {
       favoriteFolderName,
       favoritePostIds,
       favorites,
+      feedPage,
+      feedHasMore,
+      feedLoadingMore,
       feedMode,
       followingAuthorIds,
       likedPostIds,
@@ -849,6 +917,7 @@ export function useDashboard(): DashboardReturn {
       submitAuth,
       submitComment,
       submitComposer,
+      loadMoreFeed,
       toggleComments,
       toggleFavorite,
       toggleFollow,

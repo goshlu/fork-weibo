@@ -116,7 +116,7 @@ describe('useDashboard - notification actions', () => {
     vi.mocked(api.getTopics).mockResolvedValue({ items: [] });
     vi.mocked(api.getSearchTrends).mockResolvedValue({ items: [] });
     vi.mocked(api.getChannels).mockResolvedValue({ items: [] });
-    vi.mocked(api.getFeed).mockResolvedValue({ items: [] });
+    vi.mocked(api.getFeed).mockResolvedValue({ items: [], page: 1, pageSize: 10, total: 0 });
     vi.mocked(api.getMyUser).mockResolvedValue({ user: createMockUser() });
     vi.mocked(api.getProfile).mockResolvedValue({ profile: createMockProfile() });
     vi.mocked(api.getPosts).mockResolvedValue({ items: [] });

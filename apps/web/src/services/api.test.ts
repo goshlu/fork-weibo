@@ -253,7 +253,7 @@ describe('api service', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ items: [] }),
+        json: () => Promise.resolve({ items: [], page: 1, pageSize: 10, total: 0 }),
       });
 
       await api.getFeed('hot');
@@ -271,6 +271,21 @@ describe('api service', () => {
       await api.getFeed('recommended');
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/feed/recommended?page=1&pageSize=10`,
+        expect.any(Object)
+      );
+    });
+
+    it('should get feed with custom pagination params', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ items: [], page: 2, pageSize: 5, total: 11 }),
+      });
+
+      await api.getFeed('hot', undefined, { page: 2, pageSize: 5 });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${apiBaseUrl}/feed/hot?page=2&pageSize=5`,
         expect.any(Object)
       );
     });
