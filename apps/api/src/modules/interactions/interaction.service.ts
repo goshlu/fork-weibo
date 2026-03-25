@@ -1,6 +1,6 @@
 ﻿import { randomUUID } from 'node:crypto';
 
-import type { MemoryCache } from '../../lib/cache.js';
+import type { CacheStore } from '../../lib/cache.js';
 import type { PostAuthorSummary, PostStats, PostView, PostViewerState } from '../posts/post.types.js';
 import type { PostRepository } from '../posts/post.repository.js';
 import type { PostRecord } from '../posts/post.types.js';
@@ -22,7 +22,7 @@ export class InteractionService {
     private readonly repository: InteractionRepository,
     private readonly userRepository: UserRepository,
     private readonly postRepository: PostRepository,
-    private readonly cache?: MemoryCache,
+    private readonly cache?: CacheStore,
   ) { }
 
   async likePost(userId: string, postId: string): Promise<{ liked: boolean; likesCount: number }> {
@@ -51,7 +51,7 @@ export class InteractionService {
       };
     });
 
-    this.invalidateInteractionCaches();
+    await this.invalidateInteractionCaches();
     return result;
   }
 
@@ -67,7 +67,7 @@ export class InteractionService {
       };
     });
 
-    this.invalidateInteractionCaches();
+    await this.invalidateInteractionCaches();
     return result;
   }
 
@@ -104,7 +104,7 @@ export class InteractionService {
       };
     });
 
-    this.invalidateInteractionCaches();
+    await this.invalidateInteractionCaches();
     return result;
   }
 
@@ -123,7 +123,7 @@ export class InteractionService {
       };
     });
 
-    this.invalidateInteractionCaches();
+    await this.invalidateInteractionCaches();
     return result;
   }
 
@@ -208,7 +208,7 @@ export class InteractionService {
       this.userRepository.findById(userId),
     ]);
 
-    this.invalidateInteractionCaches();
+    await this.invalidateInteractionCaches();
     return this.toCommentView(comment, author);
   }
 
@@ -267,7 +267,7 @@ export class InteractionService {
       };
     });
 
-    this.invalidateInteractionCaches();
+    await this.invalidateInteractionCaches();
     return result;
   }
 
@@ -285,7 +285,7 @@ export class InteractionService {
       };
     });
 
-    this.invalidateInteractionCaches();
+    await this.invalidateInteractionCaches();
     return result;
   }
 
@@ -448,8 +448,8 @@ export class InteractionService {
     });
   }
 
-  private invalidateInteractionCaches(): void {
-    this.cache?.invalidatePrefix('feed:');
+  private async invalidateInteractionCaches(): Promise<void> {
+    await this.cache?.invalidatePrefix('feed:');
   }
 }
 

@@ -1,5 +1,5 @@
 import { env } from '../../config/env.js';
-import type { MemoryCache } from '../../lib/cache.js';
+import type { CacheStore } from '../../lib/cache.js';
 import type { z } from 'zod';
 
 import type { PostRepository } from '../posts/post.repository.js';
@@ -24,7 +24,7 @@ export class DiscoveryService {
   constructor(
     private readonly postRepository: PostRepository,
     private readonly repository: DiscoveryRepository,
-    private readonly cache?: MemoryCache,
+    private readonly cache?: CacheStore,
   ) {}
 
   async searchPosts(query: z.infer<typeof searchQuerySchema>): Promise<{
@@ -34,7 +34,7 @@ export class DiscoveryService {
     total: number;
   }> {
     const key = `discovery:search:${query.q.toLowerCase()}:${query.page}:${query.pageSize}`;
-    const cached = this.cache?.get<{
+    const cached = await this.cache?.get<{
       items: SearchResultItem[];
       page: number;
       pageSize: number;
@@ -56,13 +56,13 @@ export class DiscoveryService {
     await this.recordKeyword(query.q.trim());
 
     const result = this.paginate(items, query.page, query.pageSize);
-    this.cache?.set(key, result, env.CACHE_TTL_MS);
+    await this.cache?.set(key, result, env.CACHE_TTL_MS);
     return result;
   }
 
   async getTrendingTopics(limit = 10): Promise<TopicTrend[]> {
     const key = `discovery:topics:${limit}`;
-    const cached = this.cache?.get<TopicTrend[]>(key);
+    const cached = await this.cache?.get<TopicTrend[]>(key);
     if (cached) {
       return cached;
     }
@@ -81,13 +81,13 @@ export class DiscoveryService {
       .sort((left, right) => right.count - left.count)
       .slice(0, limit);
 
-    this.cache?.set(key, result, env.CACHE_TTL_MS);
+    await this.cache?.set(key, result, env.CACHE_TTL_MS);
     return result;
   }
 
   async getTrendingSearches(limit = 10): Promise<SearchKeywordTrend[]> {
     const key = `discovery:searches:${limit}`;
-    const cached = this.cache?.get<SearchKeywordTrend[]>(key);
+    const cached = await this.cache?.get<SearchKeywordTrend[]>(key);
     if (cached) {
       return cached;
     }
@@ -101,13 +101,13 @@ export class DiscoveryService {
       )
       .slice(0, limit);
 
-    this.cache?.set(key, result, env.CACHE_TTL_MS);
+    await this.cache?.set(key, result, env.CACHE_TTL_MS);
     return result;
   }
 
   async getChannels(): Promise<ChannelSummary[]> {
     const key = 'discovery:channels';
-    const cached = this.cache?.get<ChannelSummary[]>(key);
+    const cached = await this.cache?.get<ChannelSummary[]>(key);
     if (cached) {
       return cached;
     }
@@ -130,7 +130,7 @@ export class DiscoveryService {
       }))
       .sort((left, right) => right.count - left.count);
 
-    this.cache?.set(key, result, env.CACHE_TTL_MS);
+    await this.cache?.set(key, result, env.CACHE_TTL_MS);
     return result;
   }
 
@@ -196,7 +196,7 @@ export class DiscoveryService {
       }
     });
 
-    this.cache?.invalidatePrefix('discovery:searches:');
+    await this.cache?.invalidatePrefix('discovery:searches:');
   }
 
   private paginate<T>(

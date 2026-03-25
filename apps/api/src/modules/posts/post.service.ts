@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { z } from 'zod';
 
-import type { MemoryCache } from '../../lib/cache.js';
+import type { CacheStore } from '../../lib/cache.js';
 import type { InteractionStore } from '../interactions/interaction.types.js';
 import type { InteractionRepository } from '../interactions/interaction.repository.js';
 import type { UserRepository } from '../users/user.repository.js';
@@ -26,7 +26,7 @@ export class PostService {
     private readonly repository: PostRepository,
     private readonly userRepository: UserRepository,
     private readonly interactionRepository: InteractionRepository,
-    private readonly cache?: MemoryCache,
+    private readonly cache?: CacheStore,
   ) {}
 
   async createPost(
@@ -50,7 +50,7 @@ export class PostService {
     };
 
     await this.repository.insert(post);
-    this.invalidateContentCaches();
+    await this.invalidateContentCaches();
     return post;
   }
 
@@ -148,7 +148,7 @@ export class PostService {
     });
 
     if (updated) {
-      this.invalidateContentCaches();
+      await this.invalidateContentCaches();
     }
 
     return updated;
@@ -166,7 +166,7 @@ export class PostService {
 
     const removed = await this.repository.delete(id);
     if (removed) {
-      this.invalidateContentCaches();
+      await this.invalidateContentCaches();
     }
     return removed;
   }
@@ -233,8 +233,8 @@ export class PostService {
     };
   }
 
-  private invalidateContentCaches(): void {
-    this.cache?.invalidatePrefix('feed:');
-    this.cache?.invalidatePrefix('discovery:');
+  private async invalidateContentCaches(): Promise<void> {
+    await this.cache?.invalidatePrefix('feed:');
+    await this.cache?.invalidatePrefix('discovery:');
   }
 }

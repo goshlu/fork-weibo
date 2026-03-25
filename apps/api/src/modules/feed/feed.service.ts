@@ -1,5 +1,5 @@
 import { env } from '../../config/env.js';
-import type { MemoryCache } from '../../lib/cache.js';
+import type { CacheStore } from '../../lib/cache.js';
 import type { InteractionRepository } from '../interactions/interaction.repository.js';
 import type { InteractionStore } from '../interactions/interaction.types.js';
 import type { PostRepository } from '../posts/post.repository.js';
@@ -23,12 +23,12 @@ export class FeedService {
     private readonly postRepository: PostRepository,
     private readonly interactionRepository: InteractionRepository,
     private readonly userRepository: UserRepository,
-    private readonly cache?: MemoryCache,
+    private readonly cache?: CacheStore,
   ) {}
 
   async getFollowingFeed(userId: string, query: PaginationInput): Promise<FeedResult> {
     const key = `feed:following:${userId}:${query.page}:${query.pageSize}`;
-    const cached = this.cache?.get<FeedResult>(key);
+    const cached = await this.cache?.get<FeedResult>(key);
     if (cached) {
       return cached;
     }
@@ -56,13 +56,13 @@ export class FeedService {
       .map((post) => this.toFeedItem(post, userMap, interactions, this.recencyScore(post), 'following', userId));
 
     const result = this.paginate(items, query);
-    this.cache?.set(key, result, env.CACHE_TTL_MS);
+    await this.cache?.set(key, result, env.CACHE_TTL_MS);
     return result;
   }
 
   async getHotFeed(query: PaginationInput, requesterId?: string): Promise<FeedResult> {
     const key = `feed:hot:${requesterId ?? 'guest'}:${query.page}:${query.pageSize}`;
-    const cached = this.cache?.get<FeedResult>(key);
+    const cached = await this.cache?.get<FeedResult>(key);
     if (cached) {
       return cached;
     }
@@ -80,13 +80,13 @@ export class FeedService {
       .sort((left, right) => right.score - left.score);
 
     const result = this.paginate(items, query);
-    this.cache?.set(key, result, env.CACHE_TTL_MS);
+    await this.cache?.set(key, result, env.CACHE_TTL_MS);
     return result;
   }
 
   async getRecommendedFeed(userId: string, query: PaginationInput): Promise<FeedResult> {
     const key = `feed:recommended:${userId}:${query.page}:${query.pageSize}`;
-    const cached = this.cache?.get<FeedResult>(key);
+    const cached = await this.cache?.get<FeedResult>(key);
     if (cached) {
       return cached;
     }
@@ -133,7 +133,7 @@ export class FeedService {
       .sort((left, right) => right.score - left.score);
 
     const result = this.paginate(items, query);
-    this.cache?.set(key, result, env.CACHE_TTL_MS);
+    await this.cache?.set(key, result, env.CACHE_TTL_MS);
     return result;
   }
 

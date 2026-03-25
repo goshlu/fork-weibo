@@ -1,35 +1,55 @@
 import fp from 'fastify-plugin';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { env } from '../config/env.js';
-
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
+import { MemoryRateLimiter, type RateLimiter } from '../lib/rate-limiter.js';
+interface SecurityPluginOptions {
+  rateLimiter?: RateLimiter;
 }
 
-const bucket = new Map<string, RateLimitEntry>();
+function toRateLimitKey(request: FastifyRequest): string {
+  const ip = request.ip || 'unknown';
+  const routeKey = request.url.split('?')[0];
+  return `${ip}:${routeKey}`;
+}
 
-export const securityPlugin = fp(async (app) => {
+function sendRateLimitExceeded(reply: FastifyReply, retryAfterSeconds: number): FastifyReply {
+  reply.header('Retry-After', retryAfterSeconds);
+  reply.code(429).send({
+    message: 'Too many requests, please try again later',
+  });
+  return reply;
+}
+
+export const securityPlugin = fp<SecurityPluginOptions>(async (app, options) => {
+  const primaryRateLimiter = options.rateLimiter ?? new MemoryRateLimiter();
+  const fallbackRateLimiter = new MemoryRateLimiter();
+
   app.addHook('onRequest', async (request, reply) => {
-    const ip = request.ip || 'unknown';
-    const routeKey = request.url.split('?')[0];
-    const key = `${ip}:${routeKey}`;
-    const now = Date.now();
-    const current = bucket.get(key);
+    const key = toRateLimitKey(request);
 
-    if (!current || now > current.resetAt) {
-      bucket.set(key, {
-        count: 1,
-        resetAt: now + env.RATE_LIMIT_WINDOW_MS,
-      });
-    } else {
-      current.count += 1;
-      if (current.count > env.RATE_LIMIT_MAX) {
-        reply.header('Retry-After', Math.ceil((current.resetAt - now) / 1000));
-        reply.code(429).send({
-          message: 'Too many requests, please try again later',
-        });
-        return reply;
+    try {
+      const result = await primaryRateLimiter.consume(
+        key,
+        env.RATE_LIMIT_MAX,
+        env.RATE_LIMIT_WINDOW_MS,
+      );
+      if (!result.allowed) {
+        return sendRateLimitExceeded(reply, result.retryAfterSeconds);
+      }
+    } catch (error) {
+      request.log.warn(
+        { error, key },
+        'primary rate limiter failed, fallback to memory limiter',
+      );
+
+      const fallbackResult = await fallbackRateLimiter.consume(
+        key,
+        env.RATE_LIMIT_MAX,
+        env.RATE_LIMIT_WINDOW_MS,
+      );
+      if (!fallbackResult.allowed) {
+        return sendRateLimitExceeded(reply, fallbackResult.retryAfterSeconds);
       }
     }
   });

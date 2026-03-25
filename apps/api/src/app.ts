@@ -7,9 +7,15 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
+import { createClient, type RedisClientType } from 'redis';
 
 import { env } from './config/env.js';
-import { MemoryCache } from './lib/cache.js';
+import { MemoryCache, RedisCache, type CacheStore } from './lib/cache.js';
+import {
+  MemoryRateLimiter,
+  RedisRateLimiter,
+  type RateLimiter,
+} from './lib/rate-limiter.js';
 import { DiscoveryRepository } from './modules/discovery/discovery.repository.js';
 import { registerDiscoveryRoutes } from './modules/discovery/discovery.routes.js';
 import { DiscoveryService } from './modules/discovery/discovery.service.js';
@@ -87,6 +93,11 @@ export async function buildApp() {
     logger: true,
     trustProxy: env.TRUST_PROXY === 'true',
   });
+  let cacheBackend = 'memory';
+  let rateLimitBackend = 'memory';
+  let cache: CacheStore = new MemoryCache();
+  let rateLimiter: RateLimiter = new MemoryRateLimiter();
+  let redisClient: RedisClientType | undefined;
 
   const uploadRoot = resolveStorageDir(env.UPLOAD_DIR);
   const dataRoot = resolveStorageDir(env.DATA_DIR);
@@ -106,7 +117,29 @@ export async function buildApp() {
     },
   });
 
-  await app.register(securityPlugin);
+  if (env.REDIS_URL) {
+    redisClient = createClient({ url: env.REDIS_URL });
+    redisClient.on('error', (error) => {
+      app.log.warn({ error }, 'redis client error');
+    });
+
+    try {
+      await redisClient.connect();
+      cache = new RedisCache(redisClient);
+      rateLimiter = new RedisRateLimiter(redisClient);
+      cacheBackend = 'redis';
+      rateLimitBackend = 'redis';
+      app.log.info({ redisUrl: env.REDIS_URL }, 'redis connected');
+    } catch (error) {
+      app.log.warn({ error }, 'redis unavailable, fallback to memory cache and rate limiter');
+      if (redisClient.isOpen) {
+        await redisClient.quit();
+      }
+      redisClient = undefined;
+    }
+  }
+
+  await app.register(securityPlugin, { rateLimiter });
   await app.register(authPlugin);
   await app.register(errorPlugin);
 
@@ -116,7 +149,6 @@ export async function buildApp() {
     decorateReply: false,
   });
 
-  const cache = new MemoryCache();
   const userRepository = new UserRepository(path.join(dataRoot, 'users.json'));
   const postRepository = new PostRepository(path.join(dataRoot, 'posts.json'));
   const interactionRepository = new InteractionRepository(path.join(dataRoot, 'interactions.json'));
@@ -133,13 +165,23 @@ export async function buildApp() {
   const feedService = new FeedService(postRepository, interactionRepository, userRepository, cache);
   const discoveryService = new DiscoveryService(postRepository, discoveryRepository, cache);
 
+  if (redisClient) {
+    app.addHook('onClose', async () => {
+      if (!redisClient || !redisClient.isOpen) {
+        return;
+      }
+      await redisClient.quit();
+    });
+  }
+
   app.get('/health', async () => ({
     status: 'ok',
     service: 'api',
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.round(process.uptime()),
-    cache: 'memory',
+    cache: cacheBackend,
     rateLimit: {
+      backend: rateLimitBackend,
       max: env.RATE_LIMIT_MAX,
       windowMs: env.RATE_LIMIT_WINDOW_MS,
     },
