@@ -8,54 +8,62 @@ export default function App() {
   const { state, actions } = dashboard;
 
   return (
-    <main className="shell">
-      <LeftSidebar
-        authForm={state.authForm}
-        authMode={state.authMode}
-        busy={state.busy}
-        currentUser={state.currentUser}
-        notifications={state.notifications}
-        onAuthFormChange={actions.setAuthForm}
-        onAuthModeChange={actions.setAuthMode}
-        onLogout={actions.logout}
-        onMarkNotificationsRead={() => void actions.markNotificationsRead()}
-        onOpenNotification={(notification) => void actions.openNotification(notification)}
-        onSubmitAuth={() => void actions.submitAuth()}
-        onViewModeChange={actions.setViewMode}
-        viewMode={state.viewMode}
-      />
-      <CenterPanel dashboard={dashboard} />
-      <DiscoveryPanel
-        busy={state.busy}
-        channels={state.channels}
-        commentDrafts={state.commentDrafts}
-        commentsByPost={state.commentsByPost}
-        expandedComments={state.expandedComments}
-        favoritePostIds={state.favoritePostIds}
-        followingAuthorIds={state.followingAuthorIds}
-        likedPostIds={state.likedPostIds}
-        onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
-        onFavorite={(postId) => void actions.toggleFavorite(postId)}
-        onFollow={(authorId) => void actions.toggleFollow(authorId)}
-        onLike={(postId) => void actions.toggleLike(postId)}
-        onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
-        onOpenPost={(postId) => void actions.openPostDetail(postId)}
-        onLoadMoreSearchResults={() => void actions.loadMoreSearchResults()}
-        onSearchInputChange={actions.setSearchInput}
-        onSearchKeywordChange={(value) => {
-          actions.setSearchInput(value);
-          actions.setSearchKeyword(value);
-        }}
-        searchHasMore={state.searchHasMore}
-        onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}
-        onToggleComments={actions.toggleComments}
-        searchInput={state.searchInput}
-        searchKeyword={state.searchKeyword}
-        searchLoadingMore={state.searchLoadingMore}
-        searchResults={state.searchResults}
-        searchTrends={state.searchTrends}
-        topics={state.topics}
-      />
-    </main>
+    <>
+      {state.message ? (
+        <div className="global-message-layer" role="status" aria-live="polite">
+          <div className="message-bar">{state.message}</div>
+        </div>
+      ) : null}
+
+      <main className="shell">
+        <LeftSidebar
+          authForm={state.authForm}
+          authMode={state.authMode}
+          busy={state.busy}
+          currentUser={state.currentUser}
+          notifications={state.notifications}
+          onAuthFormChange={actions.setAuthForm}
+          onAuthModeChange={actions.setAuthMode}
+          onLogout={actions.logout}
+          onMarkNotificationsRead={() => void actions.markNotificationsRead()}
+          onOpenNotification={(notification) => void actions.openNotification(notification)}
+          onSubmitAuth={() => void actions.submitAuth()}
+          onViewModeChange={actions.setViewMode}
+          viewMode={state.viewMode}
+        />
+        <CenterPanel dashboard={dashboard} />
+        <DiscoveryPanel
+          busy={state.busy}
+          channels={state.channels}
+          commentDrafts={state.commentDrafts}
+          commentsByPost={state.commentsByPost}
+          expandedComments={state.expandedComments}
+          favoritePostIds={state.favoritePostIds}
+          followingAuthorIds={state.followingAuthorIds}
+          likedPostIds={state.likedPostIds}
+          onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
+          onFavorite={(postId) => void actions.toggleFavorite(postId)}
+          onFollow={(authorId) => void actions.toggleFollow(authorId)}
+          onLike={(postId) => void actions.toggleLike(postId)}
+          onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
+          onOpenPost={(postId) => void actions.openPostDetail(postId)}
+          onLoadMoreSearchResults={() => void actions.loadMoreSearchResults()}
+          onSearchInputChange={actions.setSearchInput}
+          onSearchKeywordChange={(value) => {
+            actions.setSearchInput(value);
+            actions.setSearchKeyword(value);
+          }}
+          searchHasMore={state.searchHasMore}
+          onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}
+          onToggleComments={actions.toggleComments}
+          searchInput={state.searchInput}
+          searchKeyword={state.searchKeyword}
+          searchLoadingMore={state.searchLoadingMore}
+          searchResults={state.searchResults}
+          searchTrends={state.searchTrends}
+          topics={state.topics}
+        />
+      </main>
+    </>
   );
 }

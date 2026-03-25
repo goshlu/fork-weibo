@@ -630,12 +630,17 @@ textarea {
   resize: vertical;
   min-height: 132px;
 }
-.message-bar {
+.global-message-layer {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
   z-index: 1200;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.message-bar {
+  position: relative;
   min-width: 240px;
   max-width: min(520px, calc(100vw - 32px));
   padding: 10px 16px;

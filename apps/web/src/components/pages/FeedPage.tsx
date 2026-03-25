@@ -11,7 +11,6 @@ type FeedPageProps = {
   feedMode: FeedMode;
   hasMore: boolean;
   loadingMore: boolean;
-  message: string;
   posts: Post[];
   likedPostIds: Record<string, boolean>;
   favoritePostIds: Record<string, boolean>;
@@ -65,7 +64,6 @@ export function FeedPage(props: FeedPageProps) {
     feedMode,
     hasMore,
     loadingMore,
-    message,
     posts,
     likedPostIds,
     favoritePostIds,
@@ -183,8 +181,6 @@ export function FeedPage(props: FeedPageProps) {
           </button>
         </div>
       </form>
-
-      {message ? <div className="message-bar">{message}</div> : null}
 
       <div className="post-list">
         {posts.length ? (

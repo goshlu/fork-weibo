@@ -26,7 +26,6 @@ export function CenterPanel({ dashboard }: CenterPanelProps) {
           followingAuthorIds={state.followingAuthorIds}
           likedPostIds={state.likedPostIds}
           loadingMore={state.feedLoadingMore}
-          message={state.message}
           onCommentDraftChange={(postId, value) => actions.setCommentDrafts((prev) => ({ ...prev, [postId]: value }))}
           onComposerChange={actions.setComposer}
           onFavorite={(postId) => void actions.toggleFavorite(postId)}
