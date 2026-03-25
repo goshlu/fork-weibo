@@ -16,8 +16,11 @@
     "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "lucide-react": "^1.0.1",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@fork-weibo/eslint-config": "workspace:*",

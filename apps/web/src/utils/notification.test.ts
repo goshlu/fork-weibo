@@ -36,9 +36,9 @@ describe('notification utils', () => {
       expect(formatNotificationTime(time)).toBe('4h ago');
     });
 
-    it('should return "昨天 HH:mm" for notifications created yesterday', () => {
+    it('should return "Yesterday HH:mm" for notifications created yesterday', () => {
       const time = new Date('2023-12-31T10:00:00Z').toISOString();
-      expect(formatNotificationTime(time)).toBe('昨天 18:00'); // 时区原因显示为 18:00
+      expect(formatNotificationTime(time)).toBe('Yesterday 18:00'); // 时区原因显示为 18:00
     });
 
     it('should return days ago for notifications created less than a week ago', () => {
@@ -48,7 +48,7 @@ describe('notification utils', () => {
 
     it('should return date string for older notifications', () => {
       const time = new Date('2023-12-01T12:00:00Z').toISOString();
-      const expected = new Date('2023-12-01T12:00:00Z').toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const expected = new Date('2023-12-01T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       expect(formatNotificationTime(time)).toBe(expected);
     });
 
