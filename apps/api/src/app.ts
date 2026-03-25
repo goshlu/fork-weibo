@@ -23,6 +23,7 @@ import { FeedService } from './modules/feed/feed.service.js';
 import { InteractionRepository } from './modules/interactions/interaction.repository.js';
 import { registerInteractionRoutes } from './modules/interactions/interaction.routes.js';
 import { InteractionService } from './modules/interactions/interaction.service.js';
+import { NotificationStreamHub } from './modules/interactions/notification-stream.js';
 import { PostRepository } from './modules/posts/post.repository.js';
 import { registerPostRoutes } from './modules/posts/post.routes.js';
 import { PostService } from './modules/posts/post.service.js';
@@ -207,6 +208,7 @@ export async function buildApp() {
   const postRepository = new PostRepository(path.join(dataRoot, 'posts.json'));
   const interactionRepository = new InteractionRepository(path.join(dataRoot, 'interactions.json'));
   const discoveryRepository = new DiscoveryRepository(path.join(dataRoot, 'search-trends.json'));
+  const notificationStream = new NotificationStreamHub();
 
   const userService = new UserService(userRepository, postRepository, interactionRepository);
   const postService = new PostService(postRepository, userRepository, interactionRepository, cache);
@@ -215,6 +217,7 @@ export async function buildApp() {
     userRepository,
     postRepository,
     cache,
+    notificationStream,
   );
   const feedService = new FeedService(postRepository, interactionRepository, userRepository, cache);
   const discoveryService = new DiscoveryService(postRepository, discoveryRepository, cache);
@@ -243,7 +246,7 @@ export async function buildApp() {
 
   await registerUserRoutes(app, userService);
   await registerPostRoutes(app, postService);
-  await registerInteractionRoutes(app, interactionService);
+  await registerInteractionRoutes(app, interactionService, notificationStream);
   await registerFeedRoutes(app, feedService);
   await registerDiscoveryRoutes(app, discoveryService);
 

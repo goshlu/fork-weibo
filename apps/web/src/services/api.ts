@@ -137,6 +137,9 @@ export const api = {
     query.set('pageSize', String(params?.pageSize ?? 20));
     return request<NotificationListResult>(`/notifications?${query.toString()}`, {}, token);
   },
+  getNotificationStreamUrl(token: string) {
+    return `${apiBaseUrl}/notifications/stream?token=${encodeURIComponent(token)}`;
+  },
   markNotificationsRead(token: string) {
     return request('/notifications/read', { method: 'POST' }, token);
   },

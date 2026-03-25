@@ -15,7 +15,9 @@ import type {
   NotificationListQuery,
   NotificationListResult,
   NotificationRecord,
+  NotificationView,
 } from './interaction.types.js';
+import type { NotificationStreamHub } from './notification-stream.js';
 
 export class InteractionService {
   constructor(
@@ -23,6 +25,7 @@ export class InteractionService {
     private readonly userRepository: UserRepository,
     private readonly postRepository: PostRepository,
     private readonly cache?: CacheStore,
+    private readonly notificationStream?: NotificationStreamHub,
   ) { }
 
   async likePost(userId: string, postId: string): Promise<{ liked: boolean; likesCount: number }> {
@@ -32,10 +35,11 @@ export class InteractionService {
     }
 
     const result = await this.repository.update((data) => {
+      let createdNotification: NotificationRecord | null = null;
       const existed = data.likes.find((item) => item.userId === userId && item.postId === postId);
       if (!existed) {
         data.likes.push({ userId, postId, createdAt: new Date().toISOString() });
-        this.appendNotification(data.notifications, {
+        createdNotification = this.appendNotification(data.notifications, {
           userId: post.authorId,
           actorId: userId,
           type: 'like',
@@ -48,11 +52,15 @@ export class InteractionService {
       return {
         liked: true,
         likesCount: data.likes.filter((item) => item.postId === postId).length,
+        notification: createdNotification,
       };
     });
 
+    if (result.notification) {
+      await this.publishNotification(result.notification);
+    }
     await this.invalidateInteractionCaches();
-    return result;
+    return { liked: result.liked, likesCount: result.likesCount };
   }
 
   async unlikePost(
@@ -82,13 +90,14 @@ export class InteractionService {
     }
 
     const result = await this.repository.update((data) => {
+      let createdNotification: NotificationRecord | null = null;
       const existed = data.favorites.find(
         (item) =>
           item.userId === userId && item.postId === postId && item.folderName === folderName,
       );
       if (!existed) {
         data.favorites.push({ userId, postId, folderName, createdAt: new Date().toISOString() });
-        this.appendNotification(data.notifications, {
+        createdNotification = this.appendNotification(data.notifications, {
           userId: post.authorId,
           actorId: userId,
           type: 'favorite',
@@ -101,11 +110,15 @@ export class InteractionService {
       return {
         folderName,
         favoritesCount: data.favorites.filter((item) => item.postId === postId).length,
+        notification: createdNotification,
       };
     });
 
+    if (result.notification) {
+      await this.publishNotification(result.notification);
+    }
     await this.invalidateInteractionCaches();
-    return result;
+    return { folderName: result.folderName, favoritesCount: result.favoritesCount };
   }
 
   async unfavoritePost(
@@ -171,7 +184,7 @@ export class InteractionService {
       throw new Error('POST_NOT_FOUND');
     }
 
-    const [comment, author] = await Promise.all([
+    const [result, author] = await Promise.all([
       this.repository.update((data) => {
         let replyTargetUserId = post.authorId;
         if (parentId) {
@@ -194,7 +207,7 @@ export class InteractionService {
         };
 
         data.comments.push(createdComment);
-        this.appendNotification(data.notifications, {
+        const createdNotification = this.appendNotification(data.notifications, {
           userId: replyTargetUserId,
           actorId: userId,
           type: 'comment',
@@ -203,13 +216,16 @@ export class InteractionService {
           message: parentId ? 'Someone replied to your comment.' : 'Someone commented on your post.',
         });
 
-        return createdComment;
+        return { comment: createdComment, notification: createdNotification };
       }),
       this.userRepository.findById(userId),
     ]);
 
+    if (result.notification) {
+      await this.publishNotification(result.notification, author);
+    }
     await this.invalidateInteractionCaches();
-    return this.toCommentView(comment, author);
+    return this.toCommentView(result.comment, author);
   }
 
   async listComments(postId: string): Promise<CommentView[]> {
@@ -245,13 +261,14 @@ export class InteractionService {
     }
 
     const result = await this.repository.update((data) => {
+      let createdNotification: NotificationRecord | null = null;
       const existed = data.follows.find(
         (item) => item.followerId === followerId && item.followeeId === followeeId,
       );
 
       if (!existed) {
         data.follows.push({ followerId, followeeId, createdAt: new Date().toISOString() });
-        this.appendNotification(data.notifications, {
+        createdNotification = this.appendNotification(data.notifications, {
           userId: followeeId,
           actorId: followerId,
           type: 'follow',
@@ -264,11 +281,15 @@ export class InteractionService {
       return {
         following: true,
         followersCount: data.follows.filter((item) => item.followeeId === followeeId).length,
+        notification: createdNotification,
       };
     });
 
+    if (result.notification) {
+      await this.publishNotification(result.notification);
+    }
     await this.invalidateInteractionCaches();
-    return result;
+    return { following: result.following, followersCount: result.followersCount };
   }
 
   async unfollowUser(
@@ -297,14 +318,7 @@ export class InteractionService {
       .sort(
         (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
       )
-      .map((item) => {
-        const actor = this.toAuthorSummary(userMap.get(item.actorId));
-        return {
-          ...item,
-          actor,
-          message: this.toNotificationMessage(item, actor),
-        };
-      });
+      .map((item) => this.toNotificationView(item, userMap.get(item.actorId)));
 
     const start = (query.page - 1) * query.pageSize;
     const items = sorted.slice(start, start + query.pageSize);
@@ -435,17 +449,41 @@ export class InteractionService {
   private appendNotification(
     notifications: NotificationRecord[],
     input: Omit<NotificationRecord, 'id' | 'isRead' | 'createdAt'>,
-  ): void {
+  ): NotificationRecord | null {
     if (input.userId === input.actorId) {
-      return;
+      return null;
     }
 
-    notifications.push({
+    const record: NotificationRecord = {
       id: randomUUID(),
       ...input,
       isRead: false,
       createdAt: new Date().toISOString(),
-    });
+    };
+    notifications.push(record);
+    return record;
+  }
+
+  private toNotificationView(notification: NotificationRecord, actor?: UserRecord): NotificationView {
+    const actorSummary = this.toAuthorSummary(actor);
+    return {
+      ...notification,
+      actor: actorSummary,
+      message: this.toNotificationMessage(notification, actorSummary),
+    };
+  }
+
+  private async publishNotification(
+    notification: NotificationRecord,
+    actor?: UserRecord,
+  ): Promise<void> {
+    if (!this.notificationStream) {
+      return;
+    }
+
+    const resolvedActor = actor ?? (await this.userRepository.findById(notification.actorId));
+    const view = this.toNotificationView(notification, resolvedActor);
+    this.notificationStream.publishNotification(notification.userId, view);
   }
 
   private async invalidateInteractionCaches(): Promise<void> {

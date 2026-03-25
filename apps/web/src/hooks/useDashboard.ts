@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { api } from '../services/api';
@@ -131,6 +131,8 @@ const DEFAULT_FAVORITE_FOLDER = 'default';
 const FEED_PAGE_SIZE = 10;
 const SEARCH_PAGE_SIZE = 8;
 const NOTIFICATIONS_PAGE_SIZE = 20;
+const NOTIFICATION_CACHE_LIMIT = 200;
+const NOTIFICATION_RECONNECT_DELAYS = [1000, 2000, 5000];
 
 function readStoredUser(): User | null {
   if (typeof window === 'undefined') return null;
@@ -177,7 +179,25 @@ function mergeNotificationPages(current: Notification[], incoming: Notification[
     merged[existingIndex] = item;
   }
 
-  return merged;
+  return merged.slice(0, NOTIFICATION_CACHE_LIMIT);
+}
+
+function mergeNotificationHead(current: Notification[], incoming: Notification[]): Notification[] {
+  const merged = [...incoming];
+  const indexById = new Map(merged.map((item, index) => [item.id, index]));
+
+  for (const item of current) {
+    const existingIndex = indexById.get(item.id);
+    if (existingIndex === undefined) {
+      indexById.set(item.id, merged.length);
+      merged.push(item);
+      continue;
+    }
+
+    merged[existingIndex] = item;
+  }
+
+  return merged.slice(0, NOTIFICATION_CACHE_LIMIT);
 }
 
 function mergePostPages(current: Post[], incoming: Post[]): Post[] {
@@ -246,6 +266,97 @@ export function useDashboard(): DashboardReturn {
   const [message, setMessage] = useState('');
   const [authForm, setAuthForm] = useState<AuthFormState>({ username: '', password: '', nickname: '' });
   const [composer, setComposer] = useState<ComposerState>({ content: '', status: 'published', images: [] });
+  const notificationStreamRef = useRef<EventSource | null>(null);
+  const notificationReconnectTimeoutRef = useRef<number | null>(null);
+  const notificationReconnectAttemptRef = useRef(0);
+  const notificationResyncRef = useRef(false);
+
+  function clearNotificationReconnectTimer() {
+    if (notificationReconnectTimeoutRef.current === null || typeof window === 'undefined') {
+      return;
+    }
+    window.clearTimeout(notificationReconnectTimeoutRef.current);
+    notificationReconnectTimeoutRef.current = null;
+  }
+
+  function closeNotificationStream() {
+    if (notificationStreamRef.current) {
+      notificationStreamRef.current.close();
+      notificationStreamRef.current = null;
+    }
+    clearNotificationReconnectTimer();
+    notificationReconnectAttemptRef.current = 0;
+    notificationResyncRef.current = false;
+  }
+
+  function scheduleNotificationReconnect(activeToken: string) {
+    if (notificationReconnectTimeoutRef.current !== null || typeof window === 'undefined') {
+      return;
+    }
+
+    const attempt = notificationReconnectAttemptRef.current;
+    const delay =
+      NOTIFICATION_RECONNECT_DELAYS[
+      Math.min(attempt, NOTIFICATION_RECONNECT_DELAYS.length - 1)
+      ];
+    notificationReconnectAttemptRef.current = attempt + 1;
+    notificationReconnectTimeoutRef.current = window.setTimeout(() => {
+      notificationReconnectTimeoutRef.current = null;
+      openNotificationStream(activeToken, true);
+    }, delay);
+  }
+
+  async function resyncNotifications(activeToken: string) {
+    try {
+      const data = await api.getNotifications(activeToken, { page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE });
+      setNotifications((prev) => mergeNotificationHead(prev, data.items));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : t.loadMoreNotificationsFailed);
+    }
+  }
+
+  function openNotificationStream(activeToken: string, reconnect = false) {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+      return;
+    }
+
+    if (notificationStreamRef.current) {
+      return;
+    }
+
+    const source = new EventSource(api.getNotificationStreamUrl(activeToken));
+    notificationStreamRef.current = source;
+
+    source.addEventListener('connected', () => {
+      notificationReconnectAttemptRef.current = 0;
+      if (reconnect || notificationResyncRef.current) {
+        notificationResyncRef.current = false;
+        void resyncNotifications(activeToken);
+      }
+    });
+
+    source.addEventListener('notification.created', (event) => {
+      try {
+        const payload = JSON.parse((event as MessageEvent).data) as { notification?: Notification };
+        const notification = payload.notification;
+        if (!notification) {
+          return;
+        }
+        setNotifications((prev) => mergeNotificationHead(prev, [notification]));
+      } catch {
+        return;
+      }
+    });
+
+    source.addEventListener('error', () => {
+      if (notificationStreamRef.current) {
+        notificationStreamRef.current.close();
+        notificationStreamRef.current = null;
+      }
+      notificationResyncRef.current = true;
+      scheduleNotificationReconnect(activeToken);
+    });
+  }
 
   useEffect(() => {
     void loadDiscovery();
@@ -308,6 +419,17 @@ export function useDashboard(): DashboardReturn {
     }
 
     void refreshAuthedData(token);
+  }, [token]);
+
+  useEffect(() => {
+    closeNotificationStream();
+    if (!token) {
+      return;
+    }
+    openNotificationStream(token);
+    return () => {
+      closeNotificationStream();
+    };
   }, [token]);
 
   useEffect(() => {
@@ -408,6 +530,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   function logout() {
+    closeNotificationStream();
     setToken('');
     setCurrentUser(null);
     setProfile(null);

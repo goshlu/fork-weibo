@@ -20,6 +20,7 @@ vi.mock('../services/api', () => ({
     getFavorites: vi.fn(),
     markNotificationsRead: vi.fn(),
     markNotificationRead: vi.fn(),
+    getNotificationStreamUrl: vi.fn(),
     getComment: vi.fn(),
     getPost: vi.fn(),
     getComments: vi.fn(),
@@ -187,4 +188,3 @@ describe('useDashboard - search pagination', () => {
     expect(result.current.state.searchHasMore).toBe(true);
   });
 });
-
