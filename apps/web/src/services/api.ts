@@ -7,6 +7,7 @@ import type {
   FeedMode,
   NotificationListResult,
   Post,
+  SearchListResult,
   SearchTrend,
   Topic,
   User,
@@ -94,8 +95,12 @@ export const api = {
   getFavorites(token: string) {
     return request<{ items: FavoriteItem[]; total: number }>('/favorites', {}, token);
   },
-  search(keyword: string) {
-    return request<{ items: Post[] }>(`/search?q=${encodeURIComponent(keyword)}&page=1&pageSize=8`);
+  search(keyword: string, params?: { page?: number; pageSize?: number }) {
+    const query = new URLSearchParams();
+    query.set('q', keyword);
+    query.set('page', String(params?.page ?? 1));
+    query.set('pageSize', String(params?.pageSize ?? 8));
+    return request<SearchListResult>(`/search?${query.toString()}`);
   },
   getTopics() {
     return request<{ items: Topic[] }>('/discover/topics?page=1&pageSize=6');

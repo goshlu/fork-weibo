@@ -40,14 +40,18 @@ export default function App() {
         onLike={(postId) => void actions.toggleLike(postId)}
         onOpenAuthor={(authorId) => void actions.openUserProfile(authorId)}
         onOpenPost={(postId) => void actions.openPostDetail(postId)}
+        onLoadMoreSearchResults={() => void actions.loadMoreSearchResults()}
         onSearchInputChange={actions.setSearchInput}
         onSearchKeywordChange={(value) => {
           actions.setSearchInput(value);
           actions.setSearchKeyword(value);
         }}
+        searchHasMore={state.searchHasMore}
         onSubmitComment={(postId, parentId) => void actions.submitComment(postId, parentId)}
         onToggleComments={actions.toggleComments}
         searchInput={state.searchInput}
+        searchKeyword={state.searchKeyword}
+        searchLoadingMore={state.searchLoadingMore}
         searchResults={state.searchResults}
         searchTrends={state.searchTrends}
         topics={state.topics}

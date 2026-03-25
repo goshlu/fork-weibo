@@ -75,6 +75,9 @@ type DashboardState = {
   searchInput: string;
   searchKeyword: string;
   searchResults: Post[];
+  searchPage: number;
+  searchHasMore: boolean;
+  searchLoadingMore: boolean;
   searchTrends: SearchTrend[];
   token: string;
   topics: Topic[];
@@ -108,6 +111,7 @@ type DashboardActions = {
   submitComment: (postId: string, parentId?: string) => Promise<void>;
   submitComposer: () => Promise<void>;
   loadMoreFeed: () => Promise<void>;
+  loadMoreSearchResults: () => Promise<void>;
   toggleComments: (postId: string) => Promise<void>;
   toggleFavorite: (postId: string) => Promise<void>;
   toggleFollow: (authorId: string) => Promise<void>;
@@ -125,6 +129,7 @@ const TOKEN_KEY = 'fork-weibo-token';
 const USER_KEY = 'fork-weibo-user';
 const DEFAULT_FAVORITE_FOLDER = 'default';
 const FEED_PAGE_SIZE = 10;
+const SEARCH_PAGE_SIZE = 8;
 const NOTIFICATIONS_PAGE_SIZE = 20;
 
 function readStoredUser(): User | null {
@@ -223,6 +228,9 @@ export function useDashboard(): DashboardReturn {
   const [searchResults, setSearchResults] = useState<Post[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchHasMore, setSearchHasMore] = useState(true);
+  const [searchLoadingMore, setSearchLoadingMore] = useState(false);
   const [commentsByPost, setCommentsByPost] = useState<Record<string, Comment[]>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
@@ -248,20 +256,27 @@ export function useDashboard(): DashboardReturn {
   }, [feedMode, token]);
 
   useEffect(() => {
-    if (!searchKeyword.trim()) {
+    const keyword = searchKeyword.trim();
+    if (!keyword) {
       setSearchResults([]);
+      setSearchPage(1);
+      setSearchHasMore(true);
+      setSearchLoadingMore(false);
       return;
     }
 
     void (async () => {
       try {
-        const data = await api.search(searchKeyword.trim());
+        const data = await api.search(keyword, { page: 1, pageSize: SEARCH_PAGE_SIZE });
         setSearchResults(data.items);
+        setSearchPage(data.page);
+        setSearchHasMore(data.page * data.pageSize < data.total);
+        setSearchLoadingMore(false);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : t.searchFailed);
       }
     })();
-  }, [searchKeyword]);
+  }, [searchKeyword, t.searchFailed]);
 
   useEffect(() => {
     const activeFolder = favoriteFolderName.trim() || DEFAULT_FAVORITE_FOLDER;
@@ -662,6 +677,29 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
+  async function loadMoreSearchResults() {
+    const keyword = searchKeyword.trim();
+    if (!keyword || searchLoadingMore || !searchHasMore) {
+      return;
+    }
+
+    setSearchLoadingMore(true);
+    try {
+      const nextPage = searchPage + 1;
+      const data = await api.search(keyword, { page: nextPage, pageSize: SEARCH_PAGE_SIZE });
+      setSearchResults((prev) => mergePostPages(prev, data.items));
+      setSearchPage(data.page);
+      setSearchHasMore(data.page * data.pageSize < data.total);
+      const viewerMaps = buildViewerMaps(data.items);
+      setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
+      setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : t.searchFailed);
+    } finally {
+      setSearchLoadingMore(false);
+    }
+  }
+
   async function saveDraft(postId: string) {
     if (!token) {
       setMessage(t.loginRequired);
@@ -886,6 +924,9 @@ export function useDashboard(): DashboardReturn {
       searchInput,
       searchKeyword,
       searchResults,
+      searchPage,
+      searchHasMore,
+      searchLoadingMore,
       searchTrends,
       token,
       topics,
@@ -918,6 +959,7 @@ export function useDashboard(): DashboardReturn {
       submitComment,
       submitComposer,
       loadMoreFeed,
+      loadMoreSearchResults,
       toggleComments,
       toggleFavorite,
       toggleFollow,

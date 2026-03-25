@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { PostCard } from './PostCard';
 import { useI18n } from '../i18n';
 import type { Channel, Comment, Post, SearchTrend, Topic } from '../types/app';
@@ -12,7 +14,10 @@ type DiscoveryPanelProps = {
   followingAuthorIds: Record<string, boolean>;
   likedPostIds: Record<string, boolean>;
   searchInput: string;
+  searchKeyword: string;
   searchResults: Post[];
+  searchHasMore: boolean;
+  searchLoadingMore: boolean;
   searchTrends: SearchTrend[];
   topics: Topic[];
   onCommentDraftChange: (postId: string, value: string) => void;
@@ -23,6 +28,7 @@ type DiscoveryPanelProps = {
   onOpenPost: (postId: string) => void;
   onSearchInputChange: (value: string) => void;
   onSearchKeywordChange: (value: string) => void;
+  onLoadMoreSearchResults: () => void;
   onSubmitComment: (postId: string, parentId?: string) => void;
   onToggleComments: (postId: string) => void;
 };
@@ -30,6 +36,7 @@ type DiscoveryPanelProps = {
 export function DiscoveryPanel(props: DiscoveryPanelProps) {
   const { dictionary } = useI18n();
   const texts = dictionary.discovery;
+  const loadingTexts = dictionary.notifications;
   const {
     busy,
     channels,
@@ -40,7 +47,10 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
     followingAuthorIds,
     likedPostIds,
     searchInput,
+    searchKeyword,
     searchResults,
+    searchHasMore,
+    searchLoadingMore,
     searchTrends,
     topics,
     onCommentDraftChange,
@@ -50,9 +60,27 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
     onOpenAuthor,
     onSearchInputChange,
     onSearchKeywordChange,
+    onLoadMoreSearchResults,
     onSubmitComment,
     onToggleComments,
   } = props;
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && searchHasMore && !searchLoadingMore && searchKeyword.trim()) {
+          onLoadMoreSearchResults();
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' },
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [onLoadMoreSearchResults, searchHasMore, searchLoadingMore, searchKeyword]);
 
   return (
     <section className="panel right-panel">
@@ -74,26 +102,31 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
         <h3>{texts.results}</h3>
         <div className="compact-list">
           {searchResults.length ? (
-            searchResults.map((post) => (
-              <PostCard
-                busy={busy}
-                commentDraft={commentDrafts[post.id] ?? ''}
-                comments={commentsByPost[post.id] ?? []}
-                commentsOpen={expandedComments[post.id] ?? false}
-                favorited={favoritePostIds[post.id] ?? false}
-                followed={followingAuthorIds[post.authorId] ?? false}
-                key={post.id}
-                liked={likedPostIds[post.id] ?? false}
-                onCommentDraftChange={onCommentDraftChange}
-                onFavorite={onFavorite}
-                onFollow={onFollow}
-                onLike={onLike}
-                onOpenAuthor={onOpenAuthor}
-                onSubmitComment={onSubmitComment}
-                onToggleComments={onToggleComments}
-                post={post}
-              />
-            ))
+            <>
+              {searchResults.map((post) => (
+                <PostCard
+                  busy={busy}
+                  commentDraft={commentDrafts[post.id] ?? ''}
+                  comments={commentsByPost[post.id] ?? []}
+                  commentsOpen={expandedComments[post.id] ?? false}
+                  favorited={favoritePostIds[post.id] ?? false}
+                  followed={followingAuthorIds[post.authorId] ?? false}
+                  key={post.id}
+                  liked={likedPostIds[post.id] ?? false}
+                  onCommentDraftChange={onCommentDraftChange}
+                  onFavorite={onFavorite}
+                  onFollow={onFollow}
+                  onLike={onLike}
+                  onOpenAuthor={onOpenAuthor}
+                  onSubmitComment={onSubmitComment}
+                  onToggleComments={onToggleComments}
+                  post={post}
+                />
+              ))}
+              {searchHasMore ? <div ref={sentinelRef} style={{ height: '40px' }} /> : null}
+              {searchLoadingMore ? <p>{loadingTexts.loadingMore}</p> : null}
+              {!searchHasMore && searchKeyword.trim() ? <p>{loadingTexts.noMore}</p> : null}
+            </>
           ) : (
             <p>{texts.resultsEmpty}</p>
           )}
@@ -137,5 +170,4 @@ export function DiscoveryPanel(props: DiscoveryPanelProps) {
     </section>
   );
 }
-
 

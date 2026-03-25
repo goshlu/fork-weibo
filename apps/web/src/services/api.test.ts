@@ -717,7 +717,7 @@ describe('api service', () => {
 
   describe('search endpoint', () => {
     it('should search with encoded keyword', async () => {
-      const mockResponse = { items: [] };
+      const mockResponse = { items: [], page: 1, pageSize: 8, total: 0 };
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -727,7 +727,24 @@ describe('api service', () => {
       const result = await api.search('test query');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/search?q=test%20query'),
+        expect.stringContaining('/search?q=test+query&page=1&pageSize=8'),
+        expect.any(Object)
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should search with custom pagination', async () => {
+      const mockResponse = { items: [], page: 2, pageSize: 5, total: 11 };
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(mockResponse),
+      });
+
+      const result = await api.search('test query', { page: 2, pageSize: 5 });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${apiBaseUrl}/search?q=test+query&page=2&pageSize=5`,
         expect.any(Object)
       );
       expect(result).toEqual(mockResponse);
