@@ -79,8 +79,8 @@ export function LeftSidebar(props: LeftSidebarProps) {
   return (
     <section className="panel left-panel sidebar-panel grid gap-4 content-start min-w-0 w-full max-w-full overflow-hidden">
       {/* Brand Hero */}
-      <div className="relative p-6 rounded-3xl overflow-hidden bg-gradient-to-br from-[rgba(203,106,67,0.18)] to-[rgba(255,255,255,0.56)] border border-[rgba(22,17,15,0.06)]">
-        <div className="absolute -top-5 -right-5 w-24 h-24 rounded-full bg-gradient-to-br from-[rgba(203,106,67,0.15)] to-[rgba(164,69,43,0.08)] pointer-events-none" />
+      <div className="relative p-6 rounded-3xl overflow-hidden bg-linear-to-br from-[rgba(203,106,67,0.18)] to-[rgba(255,255,255,0.56)] border border-[rgba(22,17,15,0.06)]">
+        <div className="absolute -top-5 -right-5 w-24 h-24 rounded-full bg-linear-to-br from-[rgba(203,106,67,0.15)] to-[rgba(164,69,43,0.08)] pointer-events-none" />
         <p className="text-xs tracking-widest uppercase text-[#9b5d3e] mb-2.5">社交网站</p>
         <p className="sidebar-hero-title">{sidebar.title}</p>
         <p className="sidebar-hero-description">{sidebar.description}</p>
@@ -115,9 +115,9 @@ export function LeftSidebar(props: LeftSidebarProps) {
         <div className="grid gap-2">
           {(['feed', 'profile', 'drafts', 'notifications'] as ViewMode[]).map((mode) => (
             <button
-              className={`flex items-center gap-3 px-3.5 py-3 min-h-12 w-full rounded-full transition-all duration-200 ${
+              className={`group flex items-center gap-3 px-3.5 py-3 min-h-12 w-full rounded-full transition-all duration-200 ${
                 viewMode === mode
-                  ? 'bg-gradient-to-br from-[#1d5d68] to-[#1a4f58] text-[#f5f0e8] shadow-[0_4px_12px_rgba(29,93,104,0.25)]'
+                  ? 'bg-linear-to-br from-[#1d5d68] to-[#1a4f58] text-[#f5f0e8] shadow-[0_4px_12px_rgba(29,93,104,0.25)]'
                   : 'bg-[rgba(255,255,255,0.84)] border border-[rgba(22,17,15,0.1)] hover:bg-[rgba(255,255,255,0.96)] hover:translate-x-1.5 hover:border-[rgba(29,93,104,0.2)]'
               }`}
               key={mode}
@@ -130,7 +130,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
               <span className="flex-1 min-w-0 truncate text-left">{viewTitles[mode]}</span>
               {mode === 'notifications' ? (
                 unreadCount > 0 && (
-                  <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-[#cb6a43] text-white text-xs font-bold flex items-center justify-center shadow-[0_2px_6px_rgba(203,106,67,0.3)]">
+                  <span className="min-w-4.5 h-4.5 px-1.5 rounded-full bg-[#cb6a43] text-white text-xs font-bold flex items-center justify-center shadow-[0_2px_6px_rgba(203,106,67,0.3)]">
                     {Math.min(unreadCount, 99)}
                   </span>
                 )
@@ -211,7 +211,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
               </label>
             )}
             <button
-              className="w-full py-3 px-4.5 rounded-full bg-gradient-to-br from-[#cb6a43] to-[#a4452b] text-[#fff9f3] shadow-[0_10px_24px_rgba(164,69,43,0.18)] disabled:opacity-70 disabled:cursor-wait transition-opacity"
+              className="w-full py-3 px-4.5 rounded-full bg-linear-to-br from-[#cb6a43] to-[#a4452b] text-[#fff9f3] shadow-[0_10px_24px_rgba(164,69,43,0.18)] disabled:opacity-70 disabled:cursor-wait transition-opacity"
               disabled={busy === 'auth'}
               type="submit"
             >
@@ -230,7 +230,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-br from-[#cb6a43] to-[#a4452b] text-[#fff9f3] font-bold shrink-0 overflow-hidden">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-linear-to-br from-[#cb6a43] to-[#a4452b] text-[#fff9f3] font-bold shrink-0 overflow-hidden">
               {currentUser.avatarUrl ? (
                 <img alt={currentUser.nickname} className="w-full h-full object-cover" src={resolveMediaUrl(currentUser.avatarUrl)} />
               ) : (
@@ -257,7 +257,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
       <div className="p-4.5 rounded-3xl bg-[rgba(255,255,255,0.62)] border border-[rgba(22,17,15,0.08)] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
         <div className="flex flex-col gap-2.5 mb-3.5">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-[rgba(29,93,104,0.12)] to-[rgba(29,93,104,0.06)]">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-linear-to-br from-[rgba(29,93,104,0.12)] to-[rgba(29,93,104,0.06)]">
               <Bell size={16} className="text-[#1d5d68]" />
             </div>
             <div className="min-w-0">
@@ -292,7 +292,7 @@ export function LeftSidebar(props: LeftSidebarProps) {
                     {!item.isRead && (
                       <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#cb6a43] border-2 border-[#fff8f0]" aria-label={sidebar.unreadDotLabel} />
                     )}
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-[rgba(203,106,67,0.22)] to-[rgba(164,69,43,0.86)] text-[#fff8f0] font-bold overflow-hidden">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-linear-to-br from-[rgba(203,106,67,0.22)] to-[rgba(164,69,43,0.86)] text-[#fff8f0] font-bold overflow-hidden">
                       {item.actor?.avatarUrl ? (
                         <img alt={notificationActorLabel(item, dictionary)} className="w-full h-full object-cover" src={resolveMediaUrl(item.actor.avatarUrl)} />
                       ) : (
