@@ -86,7 +86,7 @@ type DashboardState = {
 
 type DashboardActions = {
   deleteDraft: (postId: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   markNotificationsRead: () => Promise<void>;
   markOneNotificationRead: (id: string) => Promise<void>;
   openNotification: (notification: Notification) => Promise<void>;
@@ -125,7 +125,6 @@ export type DashboardReturn = {
   actions: DashboardActions;
 };
 
-const TOKEN_KEY = 'fork-weibo-token';
 const USER_KEY = 'fork-weibo-user';
 const DEFAULT_FAVORITE_FOLDER = 'default';
 const FEED_PAGE_SIZE = 10;
@@ -222,7 +221,7 @@ function mergePostPages(current: Post[], incoming: Post[]): Post[] {
 export function useDashboard(): DashboardReturn {
   const { dictionary } = useI18n();
   const t = dictionary.messages;
-  const [token, setToken] = useState(() => (typeof window === 'undefined' ? '' : window.localStorage.getItem(TOKEN_KEY) ?? ''));
+  const [token, setToken] = useState(() => (typeof window === 'undefined' ? '' : window.localStorage.getItem('fork-weibo-token') ?? ''));
   const [currentUser, setCurrentUser] = useState<User | null>(() => readStoredUser());
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>({ nickname: '', bio: '', password: '' });
@@ -290,7 +289,7 @@ export function useDashboard(): DashboardReturn {
     notificationResyncRef.current = false;
   }
 
-  function scheduleNotificationReconnect(activeToken: string) {
+  function scheduleNotificationReconnect() {
     if (notificationReconnectTimeoutRef.current !== null || typeof window === 'undefined') {
       return;
     }
@@ -303,20 +302,27 @@ export function useDashboard(): DashboardReturn {
     notificationReconnectAttemptRef.current = attempt + 1;
     notificationReconnectTimeoutRef.current = window.setTimeout(() => {
       notificationReconnectTimeoutRef.current = null;
-      openNotificationStream(activeToken, true);
+      openNotificationStream(true);
     }, delay);
   }
 
-  async function resyncNotifications(activeToken: string) {
+  async function resyncNotifications() {
     try {
-      const data = await api.getNotifications(activeToken, { page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE });
+      const data = await api.getNotifications({ page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE });
       setNotifications((prev) => mergeNotificationHead(prev, data.items));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.loadMoreNotificationsFailed);
     }
   }
 
-  function openNotificationStream(activeToken: string, reconnect = false) {
+  /**
+   * 打开通知流连接
+   * 
+   * 安全变更：
+   * - 现在使用 credentials: 'include' 确保 EventSource 请求携带 cookie
+   * - 不再需要手动传递 token 参数
+   */
+  function openNotificationStream(reconnect = false) {
     if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
       return;
     }
@@ -325,14 +331,18 @@ export function useDashboard(): DashboardReturn {
       return;
     }
 
-    const source = new EventSource(api.getNotificationStreamUrl(activeToken));
+    // EventSource 会自动携带同源 cookie
+    // 需要确保 API 服务支持 credentials: 'include'
+    const source = new EventSource(api.getNotificationStreamUrl(), {
+      withCredentials: true, // 关键：确保跨域请求携带 cookie
+    });
     notificationStreamRef.current = source;
 
     source.addEventListener('connected', () => {
       notificationReconnectAttemptRef.current = 0;
       if (reconnect || notificationResyncRef.current) {
         notificationResyncRef.current = false;
-        void resyncNotifications(activeToken);
+        void resyncNotifications();
       }
     });
 
@@ -355,7 +365,7 @@ export function useDashboard(): DashboardReturn {
         notificationStreamRef.current = null;
       }
       notificationResyncRef.current = true;
-      scheduleNotificationReconnect(activeToken);
+      scheduleNotificationReconnect();
     });
   }
 
@@ -378,8 +388,8 @@ export function useDashboard(): DashboardReturn {
   }, []);
 
   useEffect(() => {
-    void loadFeed(feedMode, token || undefined, { page: 1, append: false });
-  }, [feedMode, token]);
+    void loadFeed(feedMode, { page: 1, append: false });
+  }, [feedMode]);
 
   useEffect(() => {
     const keyword = searchKeyword.trim();
@@ -410,7 +420,8 @@ export function useDashboard(): DashboardReturn {
   }, [favoriteFolderName, favorites]);
 
   useEffect(() => {
-    if (!token) {
+    if (!currentUser) {
+      setToken('');
       setProfile(null);
       setProfilePosts([]);
       setViewedProfile(null);
@@ -433,28 +444,28 @@ export function useDashboard(): DashboardReturn {
       return;
     }
 
-    void refreshAuthedData(token);
-  }, [token]);
+    void refreshAuthedData();
+  }, [currentUser]);
 
   useEffect(() => {
     closeNotificationStream();
-    if (!token) {
+    if (!currentUser) {
       return;
     }
-    openNotificationStream(token);
+    openNotificationStream();
     return () => {
       closeNotificationStream();
     };
-  }, [token]);
+  }, [currentUser]);
 
   useEffect(() => {
-    if (!token || viewMode !== 'notifications') {
+    if (!currentUser || viewMode !== 'notifications') {
       return;
     }
 
     void (async () => {
       try {
-        const data = await api.getNotifications(token, { page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE });
+        const data = await api.getNotifications({ page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE });
         setNotifications(data.items);
         setNotificationPage(data.page);
         setNotificationHasMore(data.hasMore);
@@ -462,7 +473,7 @@ export function useDashboard(): DashboardReturn {
         setMessage(error instanceof Error ? error.message : t.loadMoreNotificationsFailed);
       }
     })();
-  }, [token, viewMode, t.loadMoreNotificationsFailed]);
+  }, [currentUser, viewMode, t.loadMoreNotificationsFailed]);
 
   async function loadDiscovery() {
     try {
@@ -479,15 +490,15 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
-  async function loadFeed(mode: FeedMode, activeToken?: string, options?: { page?: number; append?: boolean }) {
+  async function loadFeed(mode: FeedMode, options?: { page?: number; append?: boolean }) {
     try {
       const page = options?.page ?? 1;
-      const data = await api.getFeed(mode, activeToken, { page, pageSize: FEED_PAGE_SIZE });
+      const data = await api.getFeed(mode, { page, pageSize: FEED_PAGE_SIZE });
       setPosts((prev) => (options?.append ? mergePostPages(prev, data.items) : data.items));
       setFeedPage(data.page);
       setFeedHasMore(data.page * data.pageSize < data.total);
       setFeedLoadingMore(false);
-      if (activeToken) {
+      if (currentUser) {
         const viewerMaps = buildViewerMaps(data.items);
         setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
         setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
@@ -497,19 +508,21 @@ export function useDashboard(): DashboardReturn {
     }
   }
 
-  async function refreshAuthedData(activeToken: string) {
+  async function refreshAuthedData() {
+    if (!currentUser) return;
+    
     try {
-      const meData = await api.getMyUser(activeToken);
+      const meData = await api.getMyUser();
       const me = meData.user;
       setCurrentUser(me);
       if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(me));
 
       const [profileData, profilePostsData, draftsData, notificationsData, favoritesData] = await Promise.all([
         api.getProfile(me.id),
-        api.getPosts({ authorId: me.id, status: 'published', pageSize: 20 }, activeToken),
-        api.getPosts({ authorId: me.id, status: 'draft', pageSize: 20 }, activeToken),
-        api.getNotifications(activeToken, { page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE }),
-        api.getFavorites(activeToken),
+        api.getPosts({ authorId: me.id, status: 'published', pageSize: 20 }),
+        api.getPosts({ authorId: me.id, status: 'draft', pageSize: 20 }),
+        api.getNotifications({ page: 1, pageSize: NOTIFICATIONS_PAGE_SIZE }),
+        api.getFavorites(),
       ]);
 
       setProfile(profileData.profile);
@@ -544,8 +557,13 @@ export function useDashboard(): DashboardReturn {
     return `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api'}`.replace(/\/api$/, '') + path;
   }
 
-  function logout() {
+  async function logout() {
     closeNotificationStream();
+    try {
+      await api.logout();
+    } catch {
+      // 忽略登出 API 错误
+    }
     setToken('');
     setCurrentUser(null);
     setProfile(null);
@@ -569,7 +587,7 @@ export function useDashboard(): DashboardReturn {
     setLikedPostIds({});
     setFollowingAuthorIds({});
     if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(TOKEN_KEY);
+      window.localStorage.removeItem('fork-weibo-token');
       window.localStorage.removeItem(USER_KEY);
     }
     setMessage(t.signedOut);
@@ -583,10 +601,12 @@ export function useDashboard(): DashboardReturn {
         ? await api.login({ username: authForm.username, password: authForm.password })
         : await api.register({ username: authForm.username, password: authForm.password, nickname: authForm.nickname });
 
+      // 后端已通过 httpOnly cookie 设置 token
+      // 前端只需存储用户信息用于显示
       setToken(payload.token);
       setCurrentUser(payload.user);
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(TOKEN_KEY, payload.token);
+        window.localStorage.setItem('fork-weibo-token', payload.token);
         window.localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
       }
       setAuthForm({ username: '', password: '', nickname: '' });
@@ -600,7 +620,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function submitComposer() {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
@@ -612,10 +632,10 @@ export function useDashboard(): DashboardReturn {
     setBusy('composer');
     setMessage('');
     try {
-      await api.createPost({ content: composer.content.trim(), status: composer.status, images: composer.images }, token);
+      await api.createPost({ content: composer.content.trim(), status: composer.status, images: composer.images });
       setComposer({ content: '', status: 'published', images: [] });
       setMessage(composer.status === 'draft' ? t.draftSaved : t.postPublished);
-      await Promise.all([loadFeed(feedMode, token), refreshAuthedData(token), loadDiscovery()]);
+      await Promise.all([loadFeed(feedMode), refreshAuthedData(), loadDiscovery()]);
       setViewMode(composer.status === 'draft' ? 'drafts' : 'feed');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.postFailed);
@@ -625,7 +645,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function saveProfile() {
-    if (!token || !profile || !currentUser) {
+    if (!currentUser || !profile) {
       setMessage(t.loginRequired);
       return;
     }
@@ -649,7 +669,7 @@ export function useDashboard(): DashboardReturn {
     }
 
     try {
-      const data = await api.updateMyUser(payload, token);
+      const data = await api.updateMyUser(payload);
       setCurrentUser(data.user);
       if (typeof window !== 'undefined') window.localStorage.setItem(USER_KEY, JSON.stringify(data.user));
       setProfile((prev) => (prev ? { ...prev, nickname: data.user.nickname, bio: data.user.bio, updatedAt: data.user.updatedAt } : prev));
@@ -666,14 +686,14 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function uploadAvatar(file: File) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
 
     setBusy('avatar');
     try {
-      const data = await api.uploadAvatar(file, token);
+      const data = await api.uploadAvatar(file);
       setCurrentUser(data.user);
       setAvatarPreview(data.user.avatarUrl ? apiBase(data.user.avatarUrl) : '');
       setProfile((prev) => (prev ? { ...prev, avatarUrl: data.user.avatarUrl, updatedAt: data.user.updatedAt } : prev));
@@ -687,7 +707,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function toggleLike(postId: string) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
@@ -695,9 +715,9 @@ export function useDashboard(): DashboardReturn {
     const liked = likedPostIds[postId] ?? false;
     setBusy(`like:${postId}`);
     try {
-      await api.likePost(postId, liked, token);
+      await api.likePost(postId, liked);
       setLikedPostIds((prev) => ({ ...prev, [postId]: !liked }));
-      await Promise.all([loadFeed(feedMode, token), refreshAuthedData(token)]);
+      await Promise.all([loadFeed(feedMode), refreshAuthedData()]);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.likeFailed);
     } finally {
@@ -706,7 +726,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function toggleFavorite(postId: string) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
@@ -715,8 +735,8 @@ export function useDashboard(): DashboardReturn {
     const favorited = favoritePostIds[postId] ?? false;
     setBusy(`favorite:${postId}`);
     try {
-      await api.favoritePost(postId, favorited, token, folderName);
-      await refreshAuthedData(token);
+      await api.favoritePost(postId, favorited, folderName);
+      await refreshAuthedData();
       setMessage(favorited ? formatTemplate(t.removedFromFolder, { folder: folderName }) : formatTemplate(t.savedToFolder, { folder: folderName }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.favoriteFailed);
@@ -726,11 +746,11 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function toggleFollow(authorId: string) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
-    if (authorId === currentUser?.id) {
+    if (authorId === currentUser.id) {
       setMessage(t.cannotFollowSelf);
       return;
     }
@@ -738,9 +758,9 @@ export function useDashboard(): DashboardReturn {
     const followed = followingAuthorIds[authorId] ?? false;
     setBusy(`follow:${authorId}`);
     try {
-      await api.followAuthor(authorId, followed, token);
+      await api.followAuthor(authorId, followed);
       setFollowingAuthorIds((prev) => ({ ...prev, [authorId]: !followed }));
-      await refreshAuthedData(token);
+      await refreshAuthedData();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.followFailed);
     } finally {
@@ -762,7 +782,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function submitComment(postId: string, parentId?: string) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
@@ -775,10 +795,10 @@ export function useDashboard(): DashboardReturn {
 
     setBusy(`comment:${postId}`);
     try {
-      const data = await api.createComment(postId, content, token, parentId);
+      const data = await api.createComment(postId, content, parentId);
       setCommentsByPost((prev) => ({ ...prev, [postId]: [...(prev[postId] ?? []), data.comment] }));
       setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
-      await refreshAuthedData(token);
+      await refreshAuthedData();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.commentFailed);
     } finally {
@@ -791,7 +811,7 @@ export function useDashboard(): DashboardReturn {
       return;
     }
 
-    if (!token && feedMode !== 'hot') {
+    if (!currentUser && feedMode !== 'hot') {
       setMessage(t.loginRequired);
       return;
     }
@@ -799,11 +819,11 @@ export function useDashboard(): DashboardReturn {
     setFeedLoadingMore(true);
     try {
       const nextPage = feedPage + 1;
-      const data = await api.getFeed(feedMode, token || undefined, { page: nextPage, pageSize: FEED_PAGE_SIZE });
+      const data = await api.getFeed(feedMode, { page: nextPage, pageSize: FEED_PAGE_SIZE });
       setPosts((prev) => mergePostPages(prev, data.items));
       setFeedPage(data.page);
       setFeedHasMore(data.page * data.pageSize < data.total);
-      if (token) {
+      if (currentUser) {
         const viewerMaps = buildViewerMaps(data.items);
         setLikedPostIds((prev) => ({ ...prev, ...viewerMaps.liked }));
         setFollowingAuthorIds((prev) => ({ ...prev, ...viewerMaps.following }));
@@ -839,7 +859,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function saveDraft(postId: string) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
@@ -852,8 +872,8 @@ export function useDashboard(): DashboardReturn {
 
     setBusy(`draft-save:${postId}`);
     try {
-      await api.updatePost(postId, { content, status: 'draft' }, token);
-      await refreshAuthedData(token);
+      await api.updatePost(postId, { content, status: 'draft' });
+      await refreshAuthedData();
       setMessage(t.draftSaved);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.saveDraftFailed);
@@ -863,7 +883,7 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function publishDraft(postId: string) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
@@ -876,8 +896,8 @@ export function useDashboard(): DashboardReturn {
 
     setBusy(`draft-publish:${postId}`);
     try {
-      await api.updatePost(postId, { content, status: 'published' }, token);
-      await Promise.all([refreshAuthedData(token), loadFeed(feedMode, token)]);
+      await api.updatePost(postId, { content, status: 'published' });
+      await Promise.all([refreshAuthedData(), loadFeed(feedMode)]);
       setViewMode('profile');
       setMessage(t.draftPublished);
     } catch (error) {
@@ -888,15 +908,15 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function deleteDraft(postId: string) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
 
     setBusy(`draft-delete:${postId}`);
     try {
-      await api.deletePost(postId, token);
-      await refreshAuthedData(token);
+      await api.deletePost(postId);
+      await refreshAuthedData();
       setMessage(t.draftDeleted);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.deleteDraftFailed);
@@ -908,7 +928,7 @@ export function useDashboard(): DashboardReturn {
   async function openPostDetail(postId: string, highlightedCommentId = '') {
     try {
       const [postData, commentsData] = await Promise.all([
-        api.getPost(postId, token || undefined),
+        api.getPost(postId),
         api.getComments(postId),
       ]);
 
@@ -933,7 +953,7 @@ export function useDashboard(): DashboardReturn {
     try {
       const [profileData, postsData] = await Promise.all([
         api.getProfile(userId),
-        api.getPosts({ authorId: userId, status: 'published', pageSize: 20 }, token || undefined),
+        api.getPosts({ authorId: userId, status: 'published', pageSize: 20 }),
       ]);
 
       setViewedUserId(userId);
@@ -973,14 +993,14 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function markNotificationsRead() {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
 
     setBusy('notifications');
     try {
-      await api.markNotificationsRead(token);
+      await api.markNotificationsRead();
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.notificationMarkFailed);
@@ -990,13 +1010,13 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function markOneNotificationRead(id: string) {
-    if (!token) {
+    if (!currentUser) {
       setMessage(t.loginRequired);
       return;
     }
 
     try {
-      await api.markNotificationRead(id, token);
+      await api.markNotificationRead(id);
       setNotifications((prev) => prev.map((item) => item.id === id ? { ...item, isRead: true } : item));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : t.notificationMarkOneFailed);
@@ -1004,14 +1024,14 @@ export function useDashboard(): DashboardReturn {
   }
 
   async function loadMoreNotifications() {
-    if (!token || loadingMore || !notificationHasMore) {
+    if (!currentUser || loadingMore || !notificationHasMore) {
       return;
     }
 
     setLoadingMore(true);
     try {
       const nextPage = notificationPage + 1;
-      const data = await api.getNotifications(token, { page: nextPage, pageSize: NOTIFICATIONS_PAGE_SIZE });
+      const data = await api.getNotifications({ page: nextPage, pageSize: NOTIFICATIONS_PAGE_SIZE });
       setNotifications((prev) => mergeNotificationPages(prev, data.items));
       setNotificationPage(data.page);
       setNotificationHasMore(data.hasMore);
@@ -1107,8 +1127,3 @@ export function useDashboard(): DashboardReturn {
     },
   };
 }
-
-
-
-
-

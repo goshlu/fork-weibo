@@ -162,28 +162,43 @@ export async function registerInteractionRoutes(
     }
   });
 
+  /**
+   * 通知流 WebSocket 端点
+   * 
+   * 安全认证方式（按优先级）：
+   * 1. Authorization: Bearer <token> Header
+   * 2. Cookie: auth_token=<token>
+   * 
+   * ⚠️ 已移除 URL 参数 token 方式，避免 token 在日志中暴露
+   */
   app.get('/api/notifications/stream', async (request, reply) => {
     if (!notificationStream) {
       return reply.code(503).send({ message: 'Notification stream unavailable' });
     }
 
     let userId: string | undefined;
-    if (request.headers.authorization) {
+
+    // 优先使用 Authorization Header
+    const authHeader = request.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
       try {
         await request.jwtVerify();
         userId = request.user.userId;
       } catch {
         return reply.code(401).send({ message: 'Unauthorized' });
       }
-    } else {
-      const query = request.query as { token?: string };
-      if (!query.token) {
-        return reply.code(401).send({ message: 'Unauthorized' });
-      }
-      try {
-        const payload = await app.jwt.verify<{ userId: string }>(query.token);
-        userId = payload.userId;
-      } catch {
+    } 
+    // 降级使用 Cookie
+    else {
+      const cookieToken = request.cookies['auth_token'];
+      if (cookieToken) {
+        try {
+          const payload = await app.jwt.verify<{ userId: string }>(cookieToken);
+          userId = payload.userId;
+        } catch {
+          return reply.code(401).send({ message: 'Unauthorized' });
+        }
+      } else {
         return reply.code(401).send({ message: 'Unauthorized' });
       }
     }

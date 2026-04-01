@@ -161,8 +161,13 @@ export async function buildApp() {
     );
   }
 
+  // CORS 配置：生产环境应限制具体域名
+  const corsOrigin = env.CORS_ORIGIN
+    ? env.CORS_ORIGIN.split(',').map((s: string) => s.trim())
+    : true;
   await app.register(cors, {
-    origin: true,
+    origin: corsOrigin,
+    credentials: true, // 允许携带 cookie
   });
 
   await app.register(multipart, {
@@ -252,5 +257,3 @@ export async function buildApp() {
 
   return app;
 }
-
-

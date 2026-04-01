@@ -6,7 +6,7 @@ const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
 describe('api service', () => {
-  const mockToken = 'test-token';
+  // mockToken no longer needed - auth is cookie-based
   const apiBaseUrl = 'http://localhost:4000/api';
 
   beforeEach(() => {
@@ -32,23 +32,23 @@ describe('api service', () => {
         `${apiBaseUrl}/discover/topics?page=1&pageSize=6`,
         expect.objectContaining({
           headers: expect.any(Headers),
+          credentials: 'include',
         })
       );
       expect(result).toEqual(mockData);
     });
 
-    it('should include Authorization header when token is provided', async () => {
+    it('should include credentials for cookie-based auth', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: () => Promise.resolve({ user: {} }),
       });
 
-      await api.getMyUser(mockToken);
+      await api.getMyUser();
 
       const call = mockFetch.mock.calls[0];
-      const headers = call[1].headers as Headers;
-      expect(headers.get('Authorization')).toBe(`Bearer ${mockToken}`);
+      expect(call[1].credentials).toBe('include');
     });
 
     it('should set Content-Type header for JSON requests', async () => {
@@ -73,7 +73,7 @@ describe('api service', () => {
       });
 
       const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
-      await api.createPost({ content: 'test', status: 'published', images: [file] }, mockToken);
+      await api.createPost({ content: 'test', status: 'published', images: [file] });
 
       const call = mockFetch.mock.calls[0];
       const headers = call[1].headers as Headers;
@@ -106,7 +106,7 @@ describe('api service', () => {
         status: 204,
       });
 
-      const result = await api.deletePost('post-1', mockToken);
+      const result = await api.deletePost('post-1');
 
       expect(result).toBeUndefined();
     });
@@ -114,7 +114,7 @@ describe('api service', () => {
 
   describe('auth endpoints', () => {
     it('should call login endpoint', async () => {
-      const mockResponse = { token: mockToken, user: { id: '1', username: 'test' } };
+      const mockResponse = { token: 'test-token', user: { id: '1', username: 'test' } };
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -134,7 +134,7 @@ describe('api service', () => {
     });
 
     it('should call register endpoint', async () => {
-      const mockResponse = { token: mockToken, user: { id: '1', username: 'test' } };
+      const mockResponse = { token: 'test-token', user: { id: '1', username: 'test' } };
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -163,7 +163,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.createPost({ content: 'Test post', status: 'published', images: [] }, mockToken);
+      const result = await api.createPost({ content: 'Test post', status: 'published', images: [] });
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts`,
@@ -184,7 +184,7 @@ describe('api service', () => {
       });
 
       const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
-      const result = await api.createPost({ content: 'Test post', status: 'published', images: [file] }, mockToken);
+      const result = await api.createPost({ content: 'Test post', status: 'published', images: [file] });
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts`,
@@ -204,7 +204,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.updatePost('post-1', { content: 'Updated' }, mockToken);
+      const result = await api.updatePost('post-1', { content: 'Updated' });
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts/post-1`,
@@ -222,7 +222,7 @@ describe('api service', () => {
         status: 204,
       });
 
-      await api.deletePost('post-1', mockToken);
+      await api.deletePost('post-1');
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts/post-1`,
@@ -282,7 +282,7 @@ describe('api service', () => {
         json: () => Promise.resolve({ items: [], page: 2, pageSize: 5, total: 11 }),
       });
 
-      await api.getFeed('hot', undefined, { page: 2, pageSize: 5 });
+      await api.getFeed('hot', { page: 2, pageSize: 5 });
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/feed/hot?page=2&pageSize=5`,
@@ -357,7 +357,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.getMyUser(mockToken);
+      const result = await api.getMyUser();
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/users/me`,
@@ -374,7 +374,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.updateMyUser({ nickname: 'New Name' }, mockToken);
+      const result = await api.updateMyUser({ nickname: 'New Name' });
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/users/me`,
@@ -395,7 +395,7 @@ describe('api service', () => {
       });
 
       const file = new File(['test'], 'avatar.jpg', { type: 'image/jpeg' });
-      const result = await api.uploadAvatar(file, mockToken);
+      const result = await api.uploadAvatar(file);
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/users/me/avatar`,
@@ -433,7 +433,7 @@ describe('api service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await api.likePost('post-1', false, mockToken);
+      await api.likePost('post-1', false);
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts/post-1/likes`,
@@ -448,7 +448,7 @@ describe('api service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await api.likePost('post-1', true, mockToken);
+      await api.likePost('post-1', true);
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts/post-1/likes`,
@@ -463,7 +463,7 @@ describe('api service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await api.favoritePost('post-1', false, mockToken, 'my-folder');
+      await api.favoritePost('post-1', false, 'my-folder');
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts/post-1/favorites`,
@@ -481,7 +481,7 @@ describe('api service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await api.favoritePost('post-1', true, mockToken, 'my-folder');
+      await api.favoritePost('post-1', true, 'my-folder');
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts/post-1/favorites/my-folder`,
@@ -496,7 +496,7 @@ describe('api service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await api.followAuthor('author-1', false, mockToken);
+      await api.followAuthor('author-1', false);
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/users/author-1/follow`,
@@ -511,7 +511,7 @@ describe('api service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await api.followAuthor('author-1', true, mockToken);
+      await api.followAuthor('author-1', true);
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/users/author-1/follow`,
@@ -546,7 +546,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.createComment('post-1', 'Test comment', mockToken);
+      const result = await api.createComment('post-1', 'Test comment');
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts/post-1/comments`,
@@ -566,7 +566,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.createComment('post-1', 'Reply', mockToken, 'comment-1');
+      const result = await api.createComment('post-1', 'Reply', 'comment-1');
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/posts/post-1/comments`,
@@ -605,7 +605,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.getNotifications(mockToken);
+      const result = await api.getNotifications();
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/notifications?page=1&pageSize=20`,
@@ -622,7 +622,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.getNotifications(mockToken, { page: 2, pageSize: 10 });
+      const result = await api.getNotifications({ page: 2, pageSize: 10 });
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/notifications?page=2&pageSize=10`,
@@ -638,7 +638,7 @@ describe('api service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await api.markNotificationsRead(mockToken);
+      await api.markNotificationsRead();
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/notifications/read`,
@@ -653,7 +653,7 @@ describe('api service', () => {
         json: () => Promise.resolve({}),
       });
 
-      await api.markNotificationRead('notif-1', mockToken);
+      await api.markNotificationRead('notif-1');
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/notifications/notif-1/read`,
@@ -760,7 +760,7 @@ describe('api service', () => {
         json: () => Promise.resolve(mockResponse),
       });
 
-      const result = await api.getFavorites(mockToken);
+      const result = await api.getFavorites();
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${apiBaseUrl}/favorites`,

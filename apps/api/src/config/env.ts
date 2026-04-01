@@ -13,6 +13,8 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   CACHE_TTL_MS: z.coerce.number().int().positive().default(15_000),
   TRUST_PROXY: z.enum(['true', 'false']).default('false'),
+  // CORS 配置：多个域名用逗号分隔，不配置则允许所有来源
+  CORS_ORIGIN: z.string().optional(),
 });
 
 export const env = envSchema.parse({
@@ -25,4 +27,5 @@ export const env = envSchema.parse({
   RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS,
   CACHE_TTL_MS: process.env.CACHE_TTL_MS,
   TRUST_PROXY: process.env.TRUST_PROXY,
+  CORS_ORIGIN: process.env.CORS_ORIGIN,
 });
